@@ -1,0 +1,1 @@
+export const ORDER_ESCALATION_QUEUE = 'order-escalation'
