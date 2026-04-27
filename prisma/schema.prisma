@@ -11,3 +11,85 @@ datasource db {
   provider = "postgresql"
 
 }
+enum Currency {
+  NGN
+}
+
+enum TransferType {
+  NFC
+  MANUAL
+}
+
+enum TransferStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  RECEIVED
+  FLAGGED
+}
+
+enum TopUpStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum Role{
+  ADMIN 
+  USER
+}
+
+model User {
+  id String @default(uuid()) @id
+  name String
+  email String
+  password String
+  createdAt DateTime @default(now())
+  role Role  @default(USER)
+  updatedAt DateTime @updatedAt
+  sentTransfers Transfer[] @relation("SentTransfers")
+  recievedTransfers Transfer[] @relation("RecievedTransfers")
+  wallet Wallet[]
+
+}
+
+model Transfer{
+  id String @id @default(uuid())
+  transferType TransferType 
+  status  TransferStatus
+  amount Decimal 
+  senderId String
+  recieverId String
+  aiFlagged Boolean @default(false)
+  aiNote    String?  
+  description  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  completedAt DateTime?
+  sender  User  @relation("SentTransfers",  references: [id],fields:[senderId])
+  reciever  User  @relation("RecievedTransfers",  references: [id],fields:[recieverId])
+  
+}
+
+model Wallet {
+  id String @id @default(uuid())
+  balance Decimal 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  currency  Currency
+  userId String @unique
+  user User @relation(references: [id],fields: [userId])
+  topUps Topups[]
+}
+
+model Topups {
+  id String @id @default(uuid())
+  amount Decimal 
+  walletId String
+  squadRef String  @unique
+  status TopUpStatus  @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  completedAt DateTime?
+  wallet Wallet @relation(references: [id],fields: [walletId],onDelete: Cascade)
+}

@@ -1,14 +1,12 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { BuyerSignupDto } from './dto/buyer.dto';
+import { SignupDto } from './dto/signup.dto';
 import * as bcrypt from "bcrypt"
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { LoginDto } from './dto/login.dto';
 import { LoggerService } from 'src/logger/logger.service';
-import { DeviceTokenDto } from './dto/device-token.dto';
 import EventEmitter2 from 'eventemitter2';
-import { Role } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -18,14 +16,14 @@ export class AuthService {
         private readonly logger:LoggerService,
         private readonly eventEmitter:EventEmitter2
     ){}
-    public async registerUser(body:BuyerSignupDto){
-        const {email,phoneNumber,name,password,sellerProfile,deviceToken} = body
+    public async registerUser(body:SignupDto){
+        const {email,name,password,} = body
 
 
     
-            if(!email || !password|| ! name ||! phoneNumber){
+            if(!email || !password|| !name){
                 this.logger.warn("FIll in all Field","Auth",{
-                    email,name,sellerProfile
+                    email,name,
                 })
              throw new BadRequestException("Fill in all fields")
             }
@@ -38,10 +36,7 @@ export class AuthService {
         }
         const user=  await tx.user.findFirst({
             where:{
-                OR:[
-                    {email:email},
-                    {phoneNo:phoneNumber}
-                ]
+             email
               
             }
         })
@@ -53,17 +48,8 @@ export class AuthService {
             data:{
                 email:email,
                 name:name,
-                phoneNo:phoneNumber,
                 password: hashedPwd,
-                ...(sellerProfile && {
-                    role:Role.SELLER
-                }),
-                ...(sellerProfile &&{sellerProfile:
-                    {
-                        create:sellerProfile
-                    }}
-                ),
-                ...(deviceToken && {deviceToken})
+               
             },
             select:{
                 id:true,
@@ -79,7 +65,9 @@ export class AuthService {
            const wallet = await tx.wallet.create({
             data:{
                 userId: newUser.id,
-                balance:0
+                currency:"NGN",
+                balance:0,
+                
             }
            })
         
@@ -148,37 +136,25 @@ export class AuthService {
             
         }
     public async loginUser(body:LoginDto){
-       const {phoneNumber:phoneNo,password:oldPwd,email} = body
+       const {password:oldPwd,email} = body
 
-       if(!email && !phoneNo){
+       if(!email){
         this.logger.warn("Email or phoneno must exist,","Auth")
         throw new BadRequestException("Email or phoneno must exist")
        }
        const user = await this.db.user.findFirst({
         where:{
-            OR:[
-                 {...(phoneNo && {phoneNo})},
-                 {...(email && {email})} 
-                
-            ]
+          email
           
         },
         omit:{
            createdAt:true,
            updatedAt:true
         },
-        include:{
-            sellerProfile:{
-                omit:{
-                    createdAt:true,
-                    updatedAt:true
-                }
-            }
-        }
        })
        if(!user){
         this.logger.warn("User does not exist","Auth",{
-            phoneNo,
+            email
         })
             throw new NotFoundException("User Does not exist")
        }
@@ -212,17 +188,7 @@ export class AuthService {
             }
            }
     }
-    public async editDeviceToken(body:DeviceTokenDto){
-
-        return await this.db.user.update({
-            where:{
-                id:body.userId
-            },
-            data:{
-                deviceToken:body.deviceToken
-            }
-        })
-    }
+   
 
     public async refreshToken(userId:string,refreshToken:string){
         const user = await this.db.user.findUnique({

@@ -19,6 +19,10 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+
+  app.setGlobalPrefix('api'); 
+  
   app.useGlobalFilters(new GlobalExceptionFilter(logger));
   const config = new DocumentBuilder()
     .setTitle('Qbyte Api docs')
