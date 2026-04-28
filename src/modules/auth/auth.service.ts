@@ -55,10 +55,7 @@ export class AuthService {
                 id:true,
                 role:true,
                 name:true,
-                phoneNo:true,
                 email:true,
-                deviceToken:true,
-                sellerProfile:true
             },
            
            })
@@ -74,11 +71,10 @@ export class AuthService {
            })
            this.eventEmitter.emit("handle.test",{
             userId:newUser.id,
-            deviceToken:newUser.deviceToken
+           
            })
            this.logger.logAuthEvent("Register",newUser?.id,{
             email:newUser.email,
-            phoneNumber:newUser.phoneNo
            })
 
            return {

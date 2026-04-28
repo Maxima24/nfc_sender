@@ -7,7 +7,6 @@ import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { WalletCreateDto } from './dto/wallet-create.dto';
 import { JwtGuard } from 'src/common/utils/jwt.utils';
 import { Role } from '@prisma/client';
-import { RoleGuard } from 'src/common/guards/role.guard';
 import { WalletOperationDto } from './dto/wallet-operation.dto';
 
 @ApiTags("Wallet")
