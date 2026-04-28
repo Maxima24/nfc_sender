@@ -62,14 +62,7 @@ export class AuthService {
             },
            
            })
-           const wallet = await tx.wallet.create({
-            data:{
-                userId: newUser.id,
-                currency:"NGN",
-                balance:0,
-                
-            }
-           })
+           
         
            const payload = {
             email: newUser.email, id:newUser.id,role:newUser.role
@@ -97,14 +90,8 @@ export class AuthService {
             }
            }
         
-        })
-        
-
-
-
-       
+        })       
     }
-
 
      public async getUser(userId:string){
             if(!userId){
@@ -188,8 +175,6 @@ export class AuthService {
             }
            }
     }
-   
-
     public async refreshToken(userId:string,refreshToken:string){
         const user = await this.db.user.findUnique({
             where:{
