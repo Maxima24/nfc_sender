@@ -7,7 +7,7 @@ export class WalletCreateDto{
     @IsString()
     userId!:string
 
-     @ApiProperty({name:"UseriD",description:"The Users Id"})
+     @ApiProperty({name:"currency",description:"The Users Id",examples:[Currency.NGN]})
     @IsEnum(Currency)
     currency!: Currency
 }

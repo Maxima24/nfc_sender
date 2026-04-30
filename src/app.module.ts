@@ -11,6 +11,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { BullModule } from '@nestjs/bullmq';
 import { UploadModule } from './modules/upload/upload.module';
 import { JwtStrategy } from './common/utils/jwt.utils';
+import { WalletModule } from './modules/wallet/wallet.module';
+import { TransferModule } from './modules/transfer/transfer.module';
 
 
 
@@ -49,6 +51,7 @@ import { JwtStrategy } from './common/utils/jwt.utils';
     }),
     AuthModule,
     UploadModule,
+    WalletModule,TransferModule
   ],
   providers: [PrismaService,JwtStrategy],
 })

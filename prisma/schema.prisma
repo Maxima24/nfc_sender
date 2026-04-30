@@ -34,11 +34,15 @@ enum TopUpStatus {
   FAILED
 }
 
-enum Role{
+enum Role {
   ADMIN 
   USER
 }
 
+enum TransactionType {
+  CREDIT 
+  DEBIT
+}
 model User {
   id String @default(uuid()) @id
   name String
@@ -66,6 +70,7 @@ model Transfer{
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   completedAt DateTime?
+  token  String @unique
   sender  User  @relation("SentTransfers",  references: [id],fields:[senderId])
   reciever  User  @relation("RecievedTransfers",  references: [id],fields:[recieverId])
   
@@ -80,6 +85,7 @@ model Wallet {
   userId String @unique
   user User @relation(references: [id],fields: [userId])
   topUps Topups[]
+  transactions Transactions[]
 }
 
 model Topups {
@@ -93,3 +99,15 @@ model Topups {
   completedAt DateTime?
   wallet Wallet @relation(references: [id],fields: [walletId],onDelete: Cascade)
 }
+
+model Transactions{
+  id String @id @default(uuid())
+  reference String?
+  walletId String
+  amount   Decimal
+  wallet Wallet @relation(references: [id],fields: [walletId])
+  type TransactionType 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+} 
+

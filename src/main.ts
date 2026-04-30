@@ -25,7 +25,7 @@ async function bootstrap() {
   
   app.useGlobalFilters(new GlobalExceptionFilter(logger));
   const config = new DocumentBuilder()
-    .setTitle('Qbyte Api docs')
+    .setTitle('TapSwap Api docs')
     .setDescription('APi Documentation')
     .setVersion('1.0')
     .addBearerAuth()
