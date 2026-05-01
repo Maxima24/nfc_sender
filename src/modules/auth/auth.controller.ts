@@ -42,7 +42,7 @@ export class AuthController {
     status: 200,
     description: 'Login successful',
   })
-  @ApiResponse({ status: 400, description: 'Bad request - invalid credentials' })
+  @ApiResponse({ status: 400, description: 'Bad request - invalid credentials' }) 
   @ApiResponse({ status: 401, description: 'Unauthorized - invalid credentials' })
   public async LoginUser(@Body() body: LoginDto) {
     return this.authService.loginUser(body);

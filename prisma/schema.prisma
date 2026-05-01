@@ -48,19 +48,20 @@ model User {
   name String
   email String
   password String
+  phone    String
   createdAt DateTime @default(now())
   role Role  @default(USER)
   updatedAt DateTime @updatedAt
   sentTransfers Transfer[] @relation("SentTransfers")
   recievedTransfers Transfer[] @relation("RecievedTransfers")
-  wallet Wallet[]
+  wallet Wallet?
 
 }
 
 model Transfer{
   id String @id @default(uuid())
   transferType TransferType 
-  status  TransferStatus
+  status  TransferStatus @default(PENDING)
   amount Decimal 
   senderId String
   recieverId String
@@ -82,6 +83,9 @@ model Wallet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   currency  Currency
+  virtualAccountNumber  String? @unique
+  virtualBankAccount  String?  
+  customerIdentifier String? @unique
   userId String @unique
   user User @relation(references: [id],fields: [userId])
   topUps Topups[]
@@ -103,6 +107,7 @@ model Topups {
 model Transactions{
   id String @id @default(uuid())
   reference String?
+  description String?
   walletId String
   amount   Decimal
   wallet Wallet @relation(references: [id],fields: [walletId])
