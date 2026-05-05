@@ -14,6 +14,7 @@ import { JwtGuard } from 'src/common/utils/jwt.utils';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { SignupDto } from './dto/signup.dto';
 import type { Request } from 'express';
+import { IUpdateFcmTokenDto } from './dto/update-fcm-token';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -68,5 +69,13 @@ export class AuthController {
   @ApiResponse({ status: 404, description: 'User not found' })
   async getUserDetails(@CurrentUser() user) {
     return this.authService.getUser(user.id);
+  }
+
+  @Patch("/fcm-token")
+  @ApiOperation({summary:"Update device Fcm token"})
+  @ApiBody({type:IUpdateFcmTokenDto})
+  @UseGuards(JwtGuard)
+  async updateFcmToken(@CurrentUser() user, @Body() body:IUpdateFcmTokenDto){
+    return this.authService.updateDeviceToken(user.id,body)
   }
 }

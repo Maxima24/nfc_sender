@@ -25,6 +25,10 @@ export class SignupDto {
   @IsString()
   deviceId!: string;
 
+  @ApiProperty({ description: 'Here the device id for the user signing up' })
+  @IsString()
+  deviceToken!:string
+
   @ApiProperty({ example: 'web || mobile' })
   @IsString()
   platform!: string;
