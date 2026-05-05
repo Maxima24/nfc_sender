@@ -1,15 +1,23 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoggerService } from 'src/logger/logger.service';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidV4 } from 'uuid';
 import { firstValueFrom } from 'rxjs';
+import { TopUpStatus } from '@prisma/client';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class PayozaService {
   private payozaBaseUrl = 'https://api/payaza/africa';
   private authHeader: string;
+  private secretKey: string;
   constructor(
     private readonly db: PrismaService,
     private readonly loggerService: LoggerService,
@@ -18,6 +26,7 @@ export class PayozaService {
   ) {
     const publicKey = this.configService.get<string>(`PAYAZA_PUBLIC_KEY`);
     const payazaBaseUrl = this.configService.get<string>(`PAYAZA_BASE_URL`);
+    const payazaSecretKey = this.configService.get<string>('PAYAZA_SECRET_KEY');
     if (!payazaBaseUrl) {
       this.loggerService.error(
         `Base url not  for payaza service not found`,
@@ -36,7 +45,18 @@ export class PayozaService {
       );
     }
 
-    this.authHeader = `PAYAZA ${Buffer.from(publicKey).toString('base64')}`;
+    this.authHeader = `Payaza ${Buffer.from(publicKey).toString('base64')}`;
+    console.log(this.authHeader,"This is the auth header")
+    if (!payazaSecretKey) {
+      this.loggerService.error(
+        `Secret key for payaza service not found`,
+        'Payaza Service',
+      );
+      throw new NotFoundException(
+        `Could not find Secret key for payaza Service`,
+      );
+    }
+    this.secretKey = payazaSecretKey;
   }
 
   async initiateTopup(userId: string, amount: number) {
@@ -69,15 +89,98 @@ export class PayozaService {
       transaction_amount: amount,
       expires_in_minutes: 30,
     };
-    const payozaRes = await firstValueFrom(
-      this.httpService.post(
-        `${this.payozaBaseUrl}/live/merchant-collection/merchant/virtual_account/generate_virtual_account`,payozaPayload,{
-            headers:{
-                Authorization: this.authHeader,
-                "Content-Type":"application/json"
+    try {
+      const payozaRes = await firstValueFrom(
+        this.httpService.post(
+          `${this.payozaBaseUrl}/live/merchant-collection/merchant/virtual_account/generate_virtual_account`,
+          payozaPayload,
+          {
+            headers: {
+              Authorization: this.authHeader,
+              'Content-Type': 'application/json',
+            },
+          },
+        ),
+      );
+
+      await this.db.topups.create({
+        data: {
+          walletId: wallet.id,
+          payozaRef,
+          amount,
+          bankName: payozaRes.data.data.bank_name,
+          expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+          status: TopUpStatus.PENDING,
+        },
+      });
+
+      return {
+        message: 'Top up initiated successfully',
+        data: {
+          accountNumber: payozaRes.data.data.account_number,
+          bankName: payozaRes.data.data.bank_name,
+          amount,
+          expiresIn: '30 minutes',
+          reference: payozaRef,
+        },
+      };
+    } catch (err) {
+        console.error("Payaza endpoint error",err)
+      this.loggerService.error(
+        `Could not initiateTopUp`,
+        'Payoza Service',
+        (err as any)?.message,
+      );
+      throw new BadRequestException(`Could not initiate payoza topup`);
+    }
+  }
+
+  async handleWebhook(payload: any, signature: string) {
+    const hash = crypto
+      .createHmac('sha512', this.secretKey)
+      .update(JSON.stringify(payload))
+      .digest('base64');
+
+    if (hash !== signature) {
+      throw new UnauthorizedException(`Invalid webhook signature`);
+    }
+
+    if (payload.transaction_status !== 'Funds Received') {
+      return { recieved: true };
+    }
+
+    const existingTopup = await this.db.topups.findUnique({
+      where: {
+        payozaRef: payload.merchant_reference,
+      },
+    });
+    if (!existingTopup) {
+      this.loggerService.error(
+        `Top up record  not found for ref ${payload.transaction_reference}`,
+        'Payaza Service',
+      );
+      throw new NotFoundException(
+        `Top up record  not found for ref ${payload.transaction_reference}`,
+      );
+    }
+    await this.db.$transaction(async (tx) => {
+      await tx.topups.update({
+        where: {
+          id: existingTopup.id,
+        },
+        data: {
+          completedAt: new Date(),
+          status: TopUpStatus.COMPLETED,
+        },
+      });
+        await tx.wallet.update({
+            where:{
+                id:existingTopup.walletId,
+            },data:{
+                balance:{increment:payload.amount_received}
             }
-        }
-      ),
-    );
+        })
+    });
+    return {recieved:true}
   }
 }

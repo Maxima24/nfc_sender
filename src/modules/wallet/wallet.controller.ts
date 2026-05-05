@@ -41,7 +41,7 @@ export class WalletController {
   @ApiResponse({ status: 400, description: 'Wallet Could not be found' })
   @Get('balance')
   async get(@CurrentUser() user) {
-    await this.walletService.getWalletBalance({ userId: user.id });
+    return await this.walletService.getWalletBalance({ userId: user.id });
   }
 
   

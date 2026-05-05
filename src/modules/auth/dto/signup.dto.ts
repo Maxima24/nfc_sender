@@ -1,4 +1,4 @@
-import { IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -31,9 +31,11 @@ export class SignupDto {
 
   @ApiProperty({ example: 'ios' })
   @IsString()
+  @IsOptional()
   os?: string;
 
   @ApiProperty({ example: 'Chrome' })
   @IsString()
+  @IsOptional()
   browser?: string;
 }
