@@ -322,7 +322,7 @@ export class PayozaService {
       },
     });
     if (devices && devices.length > 0) {
-     const tokens = devices.map((device) => device.deviceId ?? '').filter(token => token !== '');
+     const tokens = devices.map((device) => device.token ?? '').filter(token => token !== '');
 
       if (tokens.length === 1) {
         await this.firebaseService.sendToDevice(
@@ -331,7 +331,7 @@ export class PayozaService {
           `You have successfully been credited ₦${amount}`,
         );
       } else {
-        
+
         await this.firebaseService.sendToMultipleDevices(
           tokens,
           'Wallet Topup',
