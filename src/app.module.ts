@@ -1,6 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AuthModule } from './modules/auth/auth.module';
-import { PrismaModule } from './modules/prisma/prisma.module';
 import { PrismaService } from './modules/prisma/prisma.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
@@ -13,6 +12,7 @@ import { UploadModule } from './modules/upload/upload.module';
 import { JwtStrategy } from './common/utils/jwt.utils';
 import { WalletModule } from './modules/wallet/wallet.module';
 import { TransferModule } from './modules/transfer/transfer.module';
+import { PayozaModule } from './modules/payoza/payoza.module';
 
 
 
@@ -51,7 +51,7 @@ import { TransferModule } from './modules/transfer/transfer.module';
     }),
     AuthModule,
     UploadModule,
-    WalletModule,TransferModule,
+    WalletModule,TransferModule,PayozaModule
   ],
   providers: [PrismaService,JwtStrategy],
 })
