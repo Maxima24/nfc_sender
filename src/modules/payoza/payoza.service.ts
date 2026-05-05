@@ -322,7 +322,7 @@ export class PayozaService {
       },
     });
     if (devices && devices.length > 0) {
-      const tokens = devices.map((device) => device.deviceId);
+     const tokens = devices.map((device) => device.deviceId ?? '').filter(token => token !== '');
 
       if (tokens.length === 1) {
         await this.firebaseService.sendToDevice(
