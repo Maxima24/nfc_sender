@@ -9,8 +9,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-
 }
+
 enum Currency {
   NGN
 }
@@ -35,98 +35,115 @@ enum TopUpStatus {
 }
 
 enum Role {
-  ADMIN 
+  ADMIN
   USER
 }
 
 enum TransactionType {
-  CREDIT 
+  CREDIT
   DEBIT
+}
+enum NotificationType {
+  CREDIT
+  DEBIT
+  ALERT
+
 }
 
 model User {
-  id String @default(uuid()) @id
-  name String
-  email String
-  password String
-  phone    String
-  createdAt DateTime @default(now())
-  role Role  @default(USER)
-  updatedAt DateTime @updatedAt
-  sentTransfers Transfer[] @relation("SentTransfers")
+  id                String     @id @default(uuid())
+  name              String
+  email             String
+  password          String
+  phone             String
+  createdAt         DateTime   @default(now())
+  role              Role       @default(USER)
+  updatedAt         DateTime   @updatedAt
+  sentTransfers     Transfer[] @relation("SentTransfers")
   recievedTransfers Transfer[] @relation("RecievedTransfers")
-  wallet Wallet?
-  devices Device[]
-
+  wallet            Wallet?
+  devices           Device[]
+  notifications    Notification[]
 }
 
 model Device {
-  id String @id @default(uuid())
-  userId String
-  user User @relation(fields: [userId],references: [id])
-  deviceId String
-  platform String
-  os   String?
-  browser String?
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  deviceId  String
+  platform  String
+  os        String?
+  browser   String?
   ipAddress String?
-  lastSeen DateTime @default(now())
+  lastSeen  DateTime @default(now())
 }
 
-model Transfer{
-  id String @id @default(uuid())
-  transferType TransferType 
-  status  TransferStatus @default(PENDING)
-  amount Decimal 
-  senderId String
-  recieverId String
-  aiFlagged Boolean @default(false)
-  aiNote    String?  
+model Transfer {
+  id           String         @id @default(uuid())
+  transferType TransferType
+  status       TransferStatus @default(PENDING)
+  amount       Decimal
+  senderId     String
+  recieverId   String
+  aiFlagged    Boolean        @default(false)
+  aiNote       String?
   description  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  completedAt DateTime?
-  token  String @unique
-  sender  User  @relation("SentTransfers",  references: [id],fields:[senderId])
-  reciever  User  @relation("RecievedTransfers",  references: [id],fields:[recieverId])
-  
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  completedAt  DateTime?
+  token        String         @unique
+  sender       User           @relation("SentTransfers", references: [id], fields: [senderId])
+  reciever     User           @relation("RecievedTransfers", references: [id], fields: [recieverId])
 }
 
 model Wallet {
-  id String @id @default(uuid())
-  balance Decimal @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  currency  Currency @default(NGN)
-  userId String @unique
-  user User @relation(references: [id],fields: [userId])
-  topUps Topups[]
+  id           String         @id @default(uuid())
+  balance      Decimal        @default(0)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  currency     Currency       @default(NGN)
+  userId       String         @unique
+  user         User           @relation(references: [id], fields: [userId])
+  topUps       Topups[]
   transactions Transactions[]
 }
 
 model Topups {
-  id String @id @default(uuid())
-  amount Decimal 
-  walletId String
-  payozaRef String  @unique  
+  id                   String      @id @default(uuid())
+  amount               Decimal
+  walletId             String
+  payozaRef            String      @unique
   virtualAccountNumber String?
-  bankName String?
-  status TopUpStatus  @default(PENDING)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  completedAt DateTime?
-  wallet Wallet @relation(references: [id],fields: [walletId],onDelete: Cascade)
-  expiresAt DateTime?
+  bankName             String?
+  status               TopUpStatus @default(PENDING)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  completedAt          DateTime?
+  wallet               Wallet      @relation(references: [id], fields: [walletId], onDelete: Cascade)
+  expiresAt            DateTime?
 }
 
-model Transactions{
-  id String @id @default(uuid())
-  reference String?
+model Transactions {
+  id          String          @id @default(uuid())
+  reference   String?
   description String?
-  walletId String
-  amount   Decimal
-  wallet Wallet @relation(references: [id],fields: [walletId])
-  type TransactionType 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-} 
+  walletId    String
+  amount      Decimal
+  wallet      Wallet          @relation(references: [id], fields: [walletId])
+  type        TransactionType
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
 
+model Notification {
+  id        String          @id @default(uuid())
+  userId   String
+  user  User @relation(fields: [userId],references: [id])
+  title     String
+  body      String
+  type      NotificationType
+  isRead    Boolean         @default(false)
+  createdAt DateTime        @default(now())
+  metaData  Json?
+  readAt     DateTime?     
+} 

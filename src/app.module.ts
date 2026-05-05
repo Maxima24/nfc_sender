@@ -13,6 +13,7 @@ import { JwtStrategy } from './common/utils/jwt.utils';
 import { WalletModule } from './modules/wallet/wallet.module';
 import { TransferModule } from './modules/transfer/transfer.module';
 import { PayozaModule } from './modules/payoza/payoza.module';
+import { NotificationModule } from './modules/notification/notification.module';
 
 
 
@@ -51,7 +52,7 @@ import { PayozaModule } from './modules/payoza/payoza.module';
     }),
     AuthModule,
     UploadModule,
-    WalletModule,TransferModule,PayozaModule
+    WalletModule,TransferModule,PayozaModule,NotificationModule
   ],
   providers: [PrismaService,JwtStrategy],
 })
