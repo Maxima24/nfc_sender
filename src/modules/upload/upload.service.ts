@@ -51,7 +51,7 @@ console.log('R2_SECRET_KEY:', r2_secret_key);
             ContentType: mimeType
         })
     )
-    return `${this.configService.get<string>("R2_PUBlIC_URL")}/${key}`
+    return `${this.configService.get<string>("R2_PUBLIC_URL")}/${key}`
   }
 
 
