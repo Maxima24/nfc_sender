@@ -46,7 +46,7 @@ export class PayozaService {
     }
 
     this.authHeader = `Payaza ${Buffer.from(publicKey).toString('base64')}`;
-    console.log(this.authHeader,"This is the auth header")
+    console.log(this.authHeader, 'This is the auth header');
     if (!payazaSecretKey) {
       this.loggerService.error(
         `Secret key for payaza service not found`,
@@ -59,7 +59,7 @@ export class PayozaService {
     this.secretKey = payazaSecretKey;
   }
 
-  async initiateTopup(userId: string, amount: number) {
+  private async initiateTopup(userId: string, amount: number) {
     const wallet = await this.db.wallet.findUnique({
       where: {
         userId,
@@ -92,7 +92,7 @@ export class PayozaService {
     try {
       const payozaRes = await firstValueFrom(
         this.httpService.post(
-          `${this.payozaBaseUrl}/live/merchant-collection/merchant/virtual_account/generate_virtual_account`,
+          `${this.payozaBaseUrl}/test/merchant-collection/merchant/virtual_account/generate_virtual_account`,
           payozaPayload,
           {
             headers: {
@@ -113,7 +113,7 @@ export class PayozaService {
           status: TopUpStatus.PENDING,
         },
       });
-
+      console.log(payozaRes, 'Payores res');
       return {
         message: 'Top up initiated successfully',
         data: {
@@ -125,13 +125,90 @@ export class PayozaService {
         },
       };
     } catch (err) {
-        console.error("Payaza endpoint error",err)
+      console.error('Payaza endpoint error', err);
       this.loggerService.error(
         `Could not initiateTopUp`,
         'Payoza Service',
         (err as any)?.message,
       );
       throw new BadRequestException(`Could not initiate payoza topup`);
+    }
+  }
+
+  private async simulateTopUp(userId: string, amount: number) {
+    const wallet = await this.db.wallet.findUnique({
+      where: {
+        userId,
+      },
+      include: {
+        user: true,
+      },
+    });
+    if (!wallet) {
+      this.loggerService.error(
+        `Could not find wallet for user ${userId}`,
+        'Payoza Service',
+      );
+      throw new NotFoundException(`Could not find wallet for user ${userId}`);
+    }
+
+    const { data } = await this.initiateTopup(userId, amount);
+    const payozaPayload = {
+      account_name: wallet.user.name,
+      account_number: data.accountNumber,
+      initiation_transaction_reference: data.reference,
+      transaction_amount: Number(data.amount),
+      currency: 'NGN',
+      source_account_number: '0123456789',
+      source_account_name: 'Test User',
+      source_bank_name: 'Test Bank',
+    };
+
+    try {
+      const payazaRes = await firstValueFrom(
+        this.httpService.post(
+          `https://api.payaza.africa/test/merchant-collection/payaza/virtual_account/fund_test_virtual_account`,
+          payozaPayload,
+          {
+            headers: {
+              Authorization: this.authHeader,
+              'Content-Type': 'application/json',
+            },
+          },
+        ),
+      );
+
+      await this.db.$transaction(async (tx) => {
+        await tx.topups.update({
+          where: {
+            payozaRef: data.reference,
+          },
+          data: {
+            status: 'COMPLETED',
+          },
+        });
+        await tx.wallet.update({
+          where: {
+            id: wallet.id,
+          },
+          data: {
+            balance: { increment: amount },
+          },
+        });
+      });
+
+      return {
+        message: payazaRes.data.message,
+        success: payazaRes.data.success,
+      };
+    } catch (err) {
+      console.error('Payaza endpoint error', err);
+      this.loggerService.error(
+        `Could not initiateTopUp`,
+        'Payoza Service',
+        (err as any)?.message,
+      );
+      throw new BadRequestException(`Could not simulate payoza topup`);
     }
   }
 
@@ -173,14 +250,75 @@ export class PayozaService {
           status: TopUpStatus.COMPLETED,
         },
       });
-        await tx.wallet.update({
-            where:{
-                id:existingTopup.walletId,
-            },data:{
-                balance:{increment:payload.amount_received}
-            }
-        })
+      await tx.wallet.update({
+        where: {
+          id: existingTopup.walletId,
+        },
+        data: {
+          balance: { increment: payload.amount_received },
+        },
+      });
     });
-    return {recieved:true}
+    return { recieved: true };
   }
+
+  async handleTopup(userId: string, amount: number) {
+    const wallet = await this.db.wallet.findUnique({
+      where: {
+        userId,
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    const payazaRef = uuidV4();
+    if (!wallet) {
+      this.loggerService.error(
+        `Could not find wallet for user ${userId}`,
+        'Payoza Service',
+      );
+
+      throw new NotFoundException(`Could not find wallet for user ${userId}`);
+    }
+
+    const updatedWallet = await this.db.$transaction(async (tx) => {
+      await tx.topups.create({
+        data: {
+          walletId: wallet.id,
+          payozaRef: payazaRef,
+          amount,
+          bankName: 'Test',
+          expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+          status: TopUpStatus.PENDING,
+        },
+      });
+
+      await tx.topups.update({
+        where: {
+          payozaRef: payazaRef,
+        },
+        data: {
+          status: 'COMPLETED',
+        },
+      });
+
+      return await tx.wallet.update({
+        where: {
+          id: wallet.id,
+        },
+        data: {
+          balance: { increment: amount },
+        },
+      });
+    });
+
+    return {
+      message: 'Topup successful',
+      data: {
+        wallet: updatedWallet,
+      },
+    };
+  }
+  
 }

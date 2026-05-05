@@ -10,12 +10,12 @@ import { JwtGuard } from 'src/common/utils/jwt.utils';
 export class PayozaController {
   constructor(private readonly payozaService: PayozaService) {}
 
-  @ApiOperation({summary:'Initiate Payaza transaction'})
+  @ApiOperation({summary:'Simulate Payaza transaction'})
   @ApiBody({type:InitilizeTopUp})
   @UseGuards(JwtGuard)
-  @Post("initialize")
-  async initialize(@CurrentUser() user, @Body()body:InitilizeTopUp){
-     return await this.payozaService.initiateTopup(user.id,body.amount)
+  @Post("handlTopUp")
+  async handleTopUp(@CurrentUser() user, @Body()body:InitilizeTopUp){
+     return await this.payozaService.handleTopup(user.id,body.amount)
   }
 
    @ApiOperation({summary:'webhook payaza calls'})

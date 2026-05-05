@@ -37,7 +37,7 @@ export class WalletController {
     description: 'Gets a user wallet balance',
   })
   @UseGuards(JwtGuard)
-  @ApiResponse({ status: 200, description: 'Wallet fetched successfully' })
+  @ApiResponse({ status: 200,   description: 'Wallet fetched successfully' })
   @ApiResponse({ status: 400, description: 'Wallet Could not be found' })
   @Get('balance')
   async get(@CurrentUser() user) {
@@ -59,7 +59,7 @@ export class WalletController {
   @Get('transactions')
   async getTransactions(@CurrentUser() user, @Query()filters:GetWalletTransactionsFilter) {
     const userId = user.id
-    await this.walletService.getWalletTransactions( userId,filters );
+   return  await this.walletService.getWalletTransactions( userId,filters );
   }
 
 }

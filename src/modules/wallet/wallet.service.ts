@@ -168,7 +168,7 @@ export class WalletService {
                 ...(startDate && endDate && {createdAt:{gte:startDate,lte:endDate}} )
             }
         }),
-        await this.db.transactions.findFirst({
+        await this.db.transactions.findMany({
             where:{
                        ...(startDate && {createdAt: {gte:startDate}}),
                 ...(endDate && {createdAt:{lte:endDate}}),
