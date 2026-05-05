@@ -1,28 +1,39 @@
-import {  IsString, MinLength, } from "class-validator"
-import { ApiProperty } from "@nestjs/swagger"
-import { Type } from "class-transformer"
-
-
+import { IsString, MinLength } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class SignupDto {
-  @ApiProperty({ example: "John Doe" })
+  @ApiProperty({ example: 'John Doe' })
   @IsString()
-  name!: string
+  name!: string;
 
-  @ApiProperty({ example: "john@example.com" })
+  @ApiProperty({ example: 'john@example.com' })
   @IsString()
-  email!: string
+  email!: string;
 
-
-   @ApiProperty({ example: "+2347068594534" })
+  @ApiProperty({ example: '+2347068594534' })
   @IsString()
-  @Type(()=>String)
-  phone!: string
+  @Type(() => String)
+  phone!: string;
 
-  @ApiProperty({ example: "strongpassword" })
+  @ApiProperty({ example: 'strongpassword' })
   @IsString()
   @MinLength(6)
-  password!: string
+  password!: string;
 
-  
+  @ApiProperty({ description: 'Here the device id for the user signing up' })
+  @IsString()
+  deviceId!: string;
+
+  @ApiProperty({ example: 'web || mobile' })
+  @IsString()
+  platform!: string;
+
+  @ApiProperty({ example: 'ios' })
+  @IsString()
+  os?: string;
+
+  @ApiProperty({ example: 'Chrome' })
+  @IsString()
+  browser?: string;
 }

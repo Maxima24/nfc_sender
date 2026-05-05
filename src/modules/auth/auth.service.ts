@@ -12,7 +12,6 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { LoginDto } from './dto/login.dto';
 import { LoggerService } from 'src/logger/logger.service';
-import { SquadcoService } from '../squadco/squadco.service';
 import { Currency } from '@prisma/client';
 
 @Injectable()
@@ -22,9 +21,8 @@ export class AuthService {
     private jwt: JwtService,
     private configService: ConfigService,
     private readonly logger: LoggerService,
-    private readonly squadcoService: SquadcoService,
   ) {}
-  public async registerUser(body: SignupDto) {
+  public async registerUser(body: SignupDto,ip:string|undefined) {
     const { email, name, password, phone } = body;
 
     if (!email || !password || !name || !phone) {
@@ -68,6 +66,17 @@ export class AuthService {
           userId: newUser.id,
         },
       });
+      await tx.device.create({
+  data: {
+    userId: newUser.id,
+    deviceId:body.deviceId,
+    platform:body.platform,
+    os: body.os ?? null,
+    browser: body.browser ?? null,
+    ipAddress: ip ?? null,  // converts undefined → null ✓
+    lastSeen: new Date(),
+  },
+});
 
       const payload = {
         email: newUser.email,
