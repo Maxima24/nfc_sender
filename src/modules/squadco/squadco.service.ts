@@ -43,11 +43,11 @@ export class SquadcoService {
       );
       throw new BadRequestException('Squad Beneficiary account is missing');
     }
-    if (!this.configService.get<string>('SQUAD_SECRET')) {
+    if (!this.configService.get<string>('SQUADCO_SECRET_KEY')) {
       this.loggerService.error('Squad Secret is missing', 'Squad service');
       throw new BadRequestException('Squad Secert is missing');
     }
-    this.squadSecret = this.configService.get<string>('SQUAD_SECRET');
+    this.squadSecret = this.configService.get<string>('SQUADCO_SECRET_KEY');
     this.squadBeneficiary = this.configService.get<string>(
       'SQUAD_BENEFICIARY_ACCOUNT',
     );

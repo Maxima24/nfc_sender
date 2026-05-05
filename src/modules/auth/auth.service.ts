@@ -93,18 +93,19 @@ export class AuthService {
       };
     });
 
-    try {
-      await this.squadcoService.createVirtualAccount(userObj);
-    } catch (err) {
-        if(err instanceof HttpException){
-            throw err
-        }else{
-          this.logger.error(
-    `Virtual account creation failed for user ${userObj.id}`,
-    'AuthService',
-  );
-        }
-    }
+  //   try {
+  //     await this.squadcoService.createVirtualAccount(userObj);
+  //   } 
+  //   catch (err) {
+  //       if(err instanceof HttpException){
+  //           throw err
+  //       }else{
+  //         this.logger.error(
+  //   `Virtual account creation failed for user ${userObj.id}`,
+  //   'AuthService',
+  // );
+  //       }
+  //   }
 
     return {
       message: 'User creation successful',
