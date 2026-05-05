@@ -4,9 +4,11 @@ import { NotificationsController  } from './notification.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoggerService } from 'src/logger/logger.service';
 import { NotificationsGateway } from './notification.gateway';
+import { FirebaseService } from './firebase.service';
 
 @Module({
   controllers: [NotificationsController ],
-  providers: [NotificationsService,PrismaService,LoggerService,NotificationsGateway],
+  providers: [NotificationsService,PrismaService,LoggerService,NotificationsGateway,FirebaseService],
+  exports:[FirebaseService]
 })
 export class NotificationModule {}

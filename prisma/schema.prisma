@@ -70,11 +70,12 @@ model Device {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  deviceId  String
+  deviceId  String?   @unique
   platform  String
   os        String?
   browser   String?
   ipAddress String?
+  isActive   Boolean?
   lastSeen  DateTime @default(now())
 }
 
