@@ -43,6 +43,12 @@ enum TransactionType {
   CREDIT
   DEBIT
 }
+enum NotificationType {
+  CREDIT
+  DEBIT
+  ALERT
+
+}
 
 model User {
   id                String     @id @default(uuid())
@@ -135,8 +141,9 @@ model Notification {
   user  User @relation(fields: [userId],references: [id])
   title     String
   body      String
-  type      TransactionType
+  type      NotificationType
   isRead    Boolean         @default(false)
   createdAt DateTime        @default(now())
   metaData  Json?
-}
+  readAt     DateTime?     
+} 
