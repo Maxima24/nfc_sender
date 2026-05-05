@@ -22,7 +22,7 @@ import { IGetAllNotification } from './dto/get-notification.dto';
 
 @ApiTags('Notifications')
 @ApiBearerAuth()
-@Controller('api/notifications')
+@Controller('notifications')
 export class NotificationsController {
   constructor(private notificationsService: NotificationsService) {}
 
