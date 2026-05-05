@@ -19,12 +19,8 @@ async function bootstrap() {
       transform: true,
     }),
   );
-
   app.enableCors({origin:"*"})
-
-
   app.setGlobalPrefix('api'); 
-  
   app.useGlobalFilters(new GlobalExceptionFilter(logger));
   const config = new DocumentBuilder()
     .setTitle('TapSwap Api docs')
