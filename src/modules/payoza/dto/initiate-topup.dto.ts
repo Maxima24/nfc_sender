@@ -1,13 +1,9 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNumber, IsPositive, Min } from "class-validator";
+import { IsNumber, Min } from "class-validator";
 
-export class SquadTopUpDto{
-
-
+export class IniateTopUp{
     @ApiProperty({description:"Amount to topup"})
     @IsNumber()
-    @IsPositive()
-    @Min(100)
+    @Min(10)
     amount!:number
-
 }

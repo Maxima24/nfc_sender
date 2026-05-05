@@ -13,6 +13,7 @@ import { CurrentUser } from 'src/common/decorators/current_user.decorator';
 import { JwtGuard } from 'src/common/utils/jwt.utils';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { SignupDto } from './dto/signup.dto';
+import type { Request } from 'express';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -28,11 +29,11 @@ export class AuthController {
   })
   @ApiResponse({ status: 400, description: 'Bad request - invalid input' })
   @ApiResponse({ status: 409, description: 'Conflict - user already exists' })
-  public async RegisterUser(@Body() body: SignupDto) {
+  public async RegisterUser(@Body() body: SignupDto,@Req() req:Request) {
     if (!body) {
       throw new BadRequestException('Request body given was empty');
     }
-    return this.authService.registerUser(body);
+    return this.authService.registerUser(body,req?.ip);
   }
 
   @Post('/login')

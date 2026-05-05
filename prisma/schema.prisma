@@ -43,6 +43,7 @@ enum TransactionType {
   CREDIT 
   DEBIT
 }
+
 model User {
   id String @default(uuid()) @id
   name String
@@ -55,7 +56,20 @@ model User {
   sentTransfers Transfer[] @relation("SentTransfers")
   recievedTransfers Transfer[] @relation("RecievedTransfers")
   wallet Wallet?
+  devices Device[]
 
+}
+
+model Device {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields: [userId],references: [id])
+  deviceId String
+  platform String
+  os   String?
+  browser String?
+  ipAddress String?
+  lastSeen DateTime @default(now())
 }
 
 model Transfer{
@@ -79,13 +93,10 @@ model Transfer{
 
 model Wallet {
   id String @id @default(uuid())
-  balance Decimal 
+  balance Decimal @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  currency  Currency
-  virtualAccountNumber  String? @unique
-  virtualBankAccount  String?  
-  customerIdentifier String? @unique
+  currency  Currency @default(NGN)
   userId String @unique
   user User @relation(references: [id],fields: [userId])
   topUps Topups[]
@@ -96,12 +107,15 @@ model Topups {
   id String @id @default(uuid())
   amount Decimal 
   walletId String
-  squadRef String  @unique  
+  payozaRef String  @unique  
+  virtualAccountNumber String?
+  bankName String?
   status TopUpStatus  @default(PENDING)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   completedAt DateTime?
   wallet Wallet @relation(references: [id],fields: [walletId],onDelete: Cascade)
+  expiresAt DateTime?
 }
 
 model Transactions{
