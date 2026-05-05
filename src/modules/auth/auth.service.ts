@@ -13,6 +13,7 @@ import { ConfigService } from '@nestjs/config';
 import { LoginDto } from './dto/login.dto';
 import { LoggerService } from 'src/logger/logger.service';
 import { Currency } from '@prisma/client';
+import { IUpdateFcmTokenDto } from './dto/update-fcm-token';
 
 @Injectable()
 export class AuthService {
@@ -22,7 +23,7 @@ export class AuthService {
     private configService: ConfigService,
     private readonly logger: LoggerService,
   ) {}
-  public async registerUser(body: SignupDto,ip:string|undefined) {
+  public async registerUser(body: SignupDto, ip: string | undefined) {
     const { email, name, password, phone } = body;
 
     if (!email || !password || !name || !phone) {
@@ -67,16 +68,17 @@ export class AuthService {
         },
       });
       await tx.device.create({
-  data: {
-    userId: newUser.id,
-    deviceId:body.deviceId,
-    platform:body.platform,
-    os: body.os ?? null,
-    browser: body.browser ?? null,
-    ipAddress: ip ?? null,  // converts undefined → null ✓
-    lastSeen: new Date(),
-  },
-});
+        data: {
+          userId: newUser.id,
+          deviceId: body.deviceId,
+          platform: body.platform,
+          os: body.os ?? null,
+          token:body.deviceToken,
+          browser: body.browser ?? null,
+          ipAddress: ip ?? null, // converts undefined → null ✓
+          lastSeen: new Date(),
+        },
+      });
 
       const payload = {
         email: newUser.email,
@@ -102,19 +104,19 @@ export class AuthService {
       };
     });
 
-  //   try {
-  //     await this.squadcoService.createVirtualAccount(userObj);
-  //   } 
-  //   catch (err) {
-  //       if(err instanceof HttpException){
-  //           throw err
-  //       }else{
-  //         this.logger.error(
-  //   `Virtual account creation failed for user ${userObj.id}`,
-  //   'AuthService',
-  // );
-  //       }
-  //   }
+    //   try {
+    //     await this.squadcoService.createVirtualAccount(userObj);
+    //   }
+    //   catch (err) {
+    //       if(err instanceof HttpException){
+    //           throw err
+    //       }else{
+    //         this.logger.error(
+    //   `Virtual account creation failed for user ${userObj.id}`,
+    //   'AuthService',
+    // );
+    //       }
+    //   }
 
     return {
       message: 'User creation successful',
@@ -240,6 +242,40 @@ export class AuthService {
       data: {
         accessToken,
         refreshToken,
+      },
+    };
+  }
+
+
+  public async updateDeviceToken(userId: string, {deviceId,deviceToken}:IUpdateFcmTokenDto) {
+    const updatedDevice = await this.db.$transaction(async (tx) => {
+      const device = await tx.device.findFirst({
+        where: {
+          userId,
+          deviceId,
+        },
+      });
+      if (!device) {
+        throw new NotFoundException(
+          `Could not find devicefor user ${userId} with device id ${deviceId}`,
+        );
+      }
+
+      return await tx.device.update({
+        where: {
+          userId,
+          deviceId,
+        },
+        data: {
+          token: deviceToken,
+        },
+      });
+    });
+
+    return {
+      message: 'Fcm token added to device list successful',
+      data: {
+        updatedDevice,
       },
     };
   }

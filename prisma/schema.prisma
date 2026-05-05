@@ -71,6 +71,7 @@ model Device {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   deviceId  String?   @unique
+  token      String?
   platform  String
   os        String?
   browser   String?
