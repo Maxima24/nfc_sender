@@ -19,6 +19,7 @@ lerna-debug.log*
 /coverage
 /.nyc_output
 
+launch-pad-a7c61-firebase-adminsdk-fbsvc-258da1db06.json
 # IDEs and editors
 /.idea
 .project

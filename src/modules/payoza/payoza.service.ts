@@ -12,6 +12,7 @@ import { v4 as uuidV4 } from 'uuid';
 import { firstValueFrom } from 'rxjs';
 import { TopUpStatus } from '@prisma/client';
 import * as crypto from 'crypto';
+import { FirebaseService } from '../notification/firebase.service';
 
 @Injectable()
 export class PayozaService {
@@ -23,6 +24,7 @@ export class PayozaService {
     private readonly loggerService: LoggerService,
     private httpService: HttpService,
     private configService: ConfigService,
+    private firebaseService: FirebaseService,
   ) {
     const publicKey = this.configService.get<string>(`PAYAZA_PUBLIC_KEY`);
     const payazaBaseUrl = this.configService.get<string>(`PAYAZA_BASE_URL`);
@@ -310,8 +312,32 @@ export class PayozaService {
         data: {
           balance: { increment: amount },
         },
+       
       });
     });
+
+    const devices = await this.db.device.findMany({
+      where: {
+        userId,
+      },
+    });
+    if (devices && devices.length > 0) {
+      const tokens = devices.map((device) => device.deviceId);
+
+      if (tokens.length === 1) {
+        await this.firebaseService.sendToDevice(
+          tokens[0],
+          'Wallet Topup',
+          `You have successfully been credited ₦${amount}`,
+        );
+      } else {
+        await this.firebaseService.sendToMultipleDevices(
+          tokens,
+          'Wallet Topup',
+          `You have successfully been credited ₦${amount}`,
+        );
+      }
+    }
 
     return {
       message: 'Topup successful',
@@ -320,5 +346,4 @@ export class PayozaService {
       },
     };
   }
-  
 }
