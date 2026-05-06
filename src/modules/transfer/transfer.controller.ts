@@ -1,13 +1,16 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { TransferService } from './transfer.service';
-import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { InitiateTransferDto } from './dto/initiate-transfer.dto';
 import { CurrentUser } from 'src/common/decorators/current_user.decorator';
 import { ExecuteTransferDto } from './dto/execute-transfer.dto';
 import { JwtGuard } from 'src/common/utils/jwt.utils';
+import { ICreatePhoneTransfer } from './dto/create-phone-transfer.dto';
+import { ISearchRecipientDto } from './dto/search-receipient.dto';
 
 @Controller('transfer')
 export class TransferController {
+  userService: any;
   constructor(private readonly transferService: TransferService) {}
 
   @Post('/initiate')
@@ -30,7 +33,7 @@ export class TransferController {
     @CurrentUser() user,
     @Body() body: InitiateTransferDto,
   ) {
-    return await this.transferService.iniitiateTransaction(user.id,body)
+    return await this.transferService.iniitiateTransaction(user.id, body);
   }
   @Post('/execute')
   @UseGuards(JwtGuard)
@@ -54,6 +57,25 @@ export class TransferController {
     @CurrentUser() user,
     @Body() body: ExecuteTransferDto,
   ) {
-    return this.transferService.executeTransaction(user.id,body)
+    return this.transferService.executeTransaction(user.id, body);
+  }
+
+  @Post('/phone')
+  @ApiOperation({ description: 'Make a transfer using phone number' })
+  @ApiBody({ type: ICreatePhoneTransfer })
+  @UseGuards(JwtGuard)
+  async createTransfer(
+    @CurrentUser() user,
+    @Body() body: ICreatePhoneTransfer,
+  ) {
+    return await this.transferService.transByPhone(user.id, body);
+  }
+
+  @Get('search-reciepient')
+  @UseGuards(JwtGuard)
+  @ApiOperation({description:"Search for reciepient to transfer to"})
+  @ApiQuery({type:ISearchRecipientDto})
+  async searchByPhone(@Query('phone') phone: string, @CurrentUser() user) {
+    return this.userService.searchByPhone(phone, user.id);
   }
 }

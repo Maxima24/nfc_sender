@@ -58,7 +58,7 @@ model User {
   name              String
   email             String     @unique
   password          String
-  phone             String
+  phone             String     @unique
   createdAt         DateTime   @default(now())
   role              Role       @default(USER)
   updatedAt         DateTime   @updatedAt
@@ -96,7 +96,7 @@ model Transfer {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   completedAt  DateTime?
-  token        String         @unique
+  token        String?         @unique
   sender       User           @relation("SentTransfers", references: [id], fields: [senderId])
   reciever     User?           @relation("RecievedTransfers", references: [id], fields: [recieverId])
 }
@@ -136,6 +136,7 @@ model Transactions {
   amount      Decimal
   wallet      Wallet          @relation(references: [id], fields: [walletId])
   type        TransactionType
+  transferType TransferType?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 }
