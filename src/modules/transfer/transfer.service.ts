@@ -182,7 +182,7 @@ export class TransferService {
   async iniitiateTransaction(userId: string, body: InitiateTransferDto) {
     const { amount, description,transferType } = body;
 
-    
+    console.log('userId from JWT:', userId)
    
 
     const  senderWallet = await 
@@ -190,8 +190,16 @@ export class TransferService {
         where: {
           userId,
         },
+        include:{
+          user:{
+            omit:{
+              password:true
+            }
+          }
+        }
       })
    
+      
 
 
     if (!senderWallet) {
@@ -206,7 +214,7 @@ export class TransferService {
 
     if (Number(senderWallet.balance) < amount) {
       this.loggerService.error(
-        `Wallet balance is insufficient for transfer :- wallet ${senderWallet.id}`,
+        `Wallet balance is insufficient for transfer :- wallet ${senderWallet.id} for user ${senderWallet.user.name}`,
         'Transfer service',
       );
       throw new BadRequestException(
