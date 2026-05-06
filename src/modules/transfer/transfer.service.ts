@@ -333,10 +333,11 @@ export class TransferService {
       }
   }
   async searchRecipientByPhone(query:string,userId:string){
+     const normalized = query.replace(/\+/g, '').replace(/\s/g, '')
     const user = await this.db.user.findFirst({
       where:{
         phone:{
-          contains:query
+          contains:normalized
         },
         NOT:{
           id:userId
