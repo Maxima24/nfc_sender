@@ -254,10 +254,17 @@ export class TransferService {
 
   async transByPhone(userId: string, body: ICreatePhoneTransfer) {
     const { amount, phoneNumber, transferType, description } = body;
+
+   const normalized = phoneNumber.startsWith('0')
+  ? '+234' + phoneNumber.slice(1)  // 👈 add the +
+  : phoneNumber.startsWith('234')
+  ? '+' + phoneNumber              // 👈 add the +
+  : phoneNumber
     await this.db.$transaction(async (tx) => {
+      
       const receiver = await tx.user.findUnique({
         where: {
-          phone: phoneNumber,
+          phone: normalized,
         },
       });
       if (!receiver) {
@@ -301,16 +308,17 @@ export class TransferService {
           balance: { increment: amount },
         },
       });
+      const transferData = {
+        amount,
+        ...(description && { description }),
+        senderId: userId,
+        recieverId: receiver.id,
+        transferType: TransferType.MANUAL,
+      };
+      console.log('transfer create data:', transferData);
 
       await tx.transfer.create({
-        data: {
-          amount,
-          ...(description && { description }),
-          senderId: userId,
-          recieverId: receiver.id,
-          transferType: TransferType.MANUAL,
-        },
-      });
+        data: transferData});
 
       await tx.transactions.create({
         data: {
@@ -348,9 +356,9 @@ export class TransferService {
         phone: {
           contains: normalized,
         },
-        NOT:{
-          id:userId
-        }
+        NOT: {
+          id: userId,
+        },
       },
       select: {
         id: true,
