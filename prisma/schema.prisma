@@ -131,6 +131,7 @@ model Topups {
 model Transactions {
   id          String          @id @default(uuid())
   reference   String?
+  paymentReference  String?
   description String?
   walletId    String
   amount      Decimal

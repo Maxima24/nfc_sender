@@ -13,6 +13,8 @@ import { firstValueFrom } from 'rxjs';
 import { TopUpStatus } from '@prisma/client';
 import * as crypto from 'crypto';
 import { FirebaseService } from '../notification/firebase.service';
+import { InitilizeTopUp } from './dto/initiate-topup.dto';
+import { IHandleWebhookDto, ReceivedFromDto } from './dto/handle-webhook.dto';
 
 @Injectable()
 export class PayozaService {
@@ -214,55 +216,20 @@ export class PayozaService {
     }
   }
 
-  async handleWebhook(payload: any, signature: string) {
-    const hash = crypto
-      .createHmac('sha512', this.secretKey)
-      .update(JSON.stringify(payload))
-      .digest('base64');
+  // async handleWebhook(payload: any, signature: string) {
+  //   const hash = crypto
+  //     .createHmac('sha512', this.secretKey)
+  //     .update(JSON.stringify(payload))
+  //     .digest('base64');
 
-    if (hash !== signature) {
-      throw new UnauthorizedException(`Invalid webhook signature`);
-    }
+  //   if (hash !== signature) {
+  //     throw new UnauthorizedException(`Invalid webhook signature`);
+  //   }
 
-    if (payload.transaction_status !== 'Funds Received') {
-      return { recieved: true };
-    }
-
-    const existingTopup = await this.db.topups.findUnique({
-      where: {
-        payozaRef: payload.merchant_reference,
-      },
-    });
-    if (!existingTopup) {
-      this.loggerService.error(
-        `Top up record  not found for ref ${payload.transaction_reference}`,
-        'Payaza Service',
-      );
-      throw new NotFoundException(
-        `Top up record  not found for ref ${payload.transaction_reference}`,
-      );
-    }
-    await this.db.$transaction(async (tx) => {
-      await tx.topups.update({
-        where: {
-          id: existingTopup.id,
-        },
-        data: {
-          completedAt: new Date(),
-          status: TopUpStatus.COMPLETED,
-        },
-      });
-      await tx.wallet.update({
-        where: {
-          id: existingTopup.walletId,
-        },
-        data: {
-          balance: { increment: payload.amount_received },
-        },
-      });
-    });
-    return { recieved: true };
-  }
+   
+   
+    
+  
 
   async handleTopup(userId: string, amount: number) {
     const wallet = await this.db.wallet.findUnique({
@@ -312,7 +279,6 @@ export class PayozaService {
         data: {
           balance: { increment: amount },
         },
-       
       });
     });
 
@@ -322,7 +288,9 @@ export class PayozaService {
       },
     });
     if (devices && devices.length > 0) {
-     const tokens = devices.map((device) => device.token ?? '').filter(token => token !== '');
+      const tokens = devices
+        .map((device) => device.token ?? '')
+        .filter((token) => token !== '');
 
       if (tokens.length === 1) {
         await this.firebaseService.sendToDevice(
@@ -331,7 +299,6 @@ export class PayozaService {
           `You have successfully been credited ₦${amount}`,
         );
       } else {
-
         await this.firebaseService.sendToMultipleDevices(
           tokens,
           'Wallet Topup',
@@ -346,5 +313,96 @@ export class PayozaService {
         wallet: updatedWallet,
       },
     };
+  }
+
+  async handlepayazaTopupInitialize(body: InitilizeTopUp, userId) {
+    const wallet = await this.db.wallet.findUnique({
+      where: {
+        userId: userId,
+      },
+    });
+    if (!wallet) {
+      throw new NotFoundException(`Could not find wallet for user ${userId}`);
+    }
+
+    const payazaRef = uuidV4();
+
+  
+    await this.db.topups.create({
+      data:{
+        amount:body.amount,
+        payozaRef:payazaRef,
+        walletId:wallet.id,
+        status:'PENDING',
+        
+      }
+    })
+    return {
+      message: 'transaction initiated successfully',
+      data: {
+        transaction_reference: payazaRef
+      },
+    };
+  }
+
+  async handleWebhook(signature: string, payload: IHandleWebhookDto) {
+    const hash = crypto
+      .createHmac('sha512', this.secretKey)
+      .update(JSON.stringify(payload))
+      .digest('base64');
+
+      if (hash !== signature) {
+      throw new UnauthorizedException(`Invalid webhook signature`);
+    }
+    if (payload.transaction_status !== 'Funds Received') {
+      return { recieved: true };
+    }
+
+     const existingTopup = await this.db.topups.findUnique({
+      where: {
+        payozaRef: payload.merchant_reference,
+      },
+    });
+
+     if (!existingTopup) {
+      this.loggerService.error(
+        `Top up record  not found for ref ${payload.transaction_reference}`,
+        'Payaza Service',
+      );
+      throw new NotFoundException(
+        `Top up record  not found for ref ${payload.transaction_reference}`,
+      );
+    }
+
+    await this.db.$transaction(async (tx) => {
+      await tx.topups.update({
+        where: {
+          id: existingTopup.id,
+        },
+        data: {
+          completedAt: new Date(),
+          status: TopUpStatus.COMPLETED,
+        },
+      });
+
+      await tx.transactions.create({
+        data:{
+          amount:payload.amount_received,
+          type:'CREDIT',
+          walletId:existingTopup.walletId,
+          reference:payload.merchant_reference,
+          paymentReference:payload.transaction_reference
+        }
+      })
+      await tx.wallet.update({
+        where: {
+          id: existingTopup.walletId,
+        },
+        data: {
+          balance: { increment: payload.amount_received },
+        },
+      });
+    });
+    return { recieved: true };
   }
 }

@@ -4,6 +4,7 @@ import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from 'src/common/decorators/current_user.decorator';
 import { InitilizeTopUp } from './dto/initiate-topup.dto';
 import { JwtGuard } from 'src/common/utils/jwt.utils';
+import { IHandleWebhookDto } from './dto/handle-webhook.dto';
 
 @ApiTags("Payaza")
 @Controller('payoza')
@@ -18,9 +19,15 @@ export class PayozaController {
      return await this.payozaService.handleTopup(user.id,body.amount)
   }
 
-   @ApiOperation({summary:'webhook payaza calls'})
-  @Post("webhook")
-  async initiateWebhook(@Body() body:any,@Headers('x-payaza-signature') signature: string,){
-     return await this.payozaService.handleWebhook(body,signature)
+//    @ApiOperation({summary:'webhook payaza calls'})
+//   @Post("webhook")
+//   async initiateWebhook(@Body() body:any,@Headers('x-payaza-signature') signature: string){
+//      return await this.payozaService.handleWebhook(signature,body)
+//   }
+  @ApiOperation({summary:"Initialize payment gateway"})
+  @Post('intialize-webhook')
+  @ApiBody({type:IHandleWebhookDto})
+  async intializePayaza(@Body() body:InitilizeTopUp,@CurrentUser() user ){
+      return await this.payozaService.handlepayazaTopupInitialize(body,user)
   }
 }
