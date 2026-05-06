@@ -58,6 +58,9 @@ export class TransferService {
 
   async executeTransaction(userId: string, token: ExecuteTransferDto) {
     const payload = this.extractTransferPayload(token);
+      if (userId === payload.senderId) {
+  throw new BadRequestException('You cannot transfer to yourself')
+}
     const [transfer, senderWallet, recieverWallet] = await Promise.all([
       this.db.transfer.findUnique({
         where: {
@@ -103,6 +106,7 @@ export class TransferService {
         `Could not find wallet for user with id ${payload.senderId}`,
       );
     }
+  
     if (transfer.status !== TransferStatus.PENDING) {
       this.loggerService.error(
         `Transfer ${payload.transferId} cannot be processed — status is ${transfer.status}`,
@@ -160,6 +164,7 @@ export class TransferService {
         data: {
           status: TransferStatus.COMPLETED,
           completedAt: new Date(),
+          recieverId:userId
         },
       });
 
@@ -175,36 +180,19 @@ export class TransferService {
   }
 
   async iniitiateTransaction(userId: string, body: InitiateTransferDto) {
-    const { amount, recieverId, description,transferType } = body;
+    const { amount, description,transferType } = body;
 
-    if (recieverId == userId) {
-      this.loggerService.error(
-        `U cannot send to any amount to yourself`,
-        'Transfer service',
-      );
-      throw new BadRequestException('YOu cannot send any amount to yourself');
-    }
+    
+   
 
-    const [reciever, senderWallet] = await Promise.all([
-      this.db.user.findUnique({
-        where: {
-          id: recieverId,
-        },
-      }),
+    const  senderWallet = await 
       this.db.wallet.findUnique({
         where: {
           userId,
         },
-      }),
-    ]);
+      })
+   
 
-    if (!reciever) {
-      this.loggerService.error(
-        `Receiver with id ${recieverId} not found`,
-        'Transfer Service',
-      );
-      throw new NotFoundException(`Receiver with id ${recieverId} not found`);
-    }
 
     if (!senderWallet) {
       this.loggerService.error(
@@ -238,10 +226,9 @@ export class TransferService {
         id: transferId,
         amount,
         senderId: userId,
-        recieverId,
         ...(description && { description }),
         status: TransferStatus.PENDING,
-        transferType: transferType,
+        transferType: transferType ?? TransferType.NFC,
         token,
       },
     });

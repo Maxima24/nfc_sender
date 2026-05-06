@@ -56,7 +56,7 @@ enum NotificationType {
 model User {
   id                String     @id @default(uuid())
   name              String
-  email             String
+  email             String     @unique
   password          String
   phone             String
   createdAt         DateTime   @default(now())
@@ -89,7 +89,7 @@ model Transfer {
   status       TransferStatus @default(PENDING)
   amount       Decimal
   senderId     String
-  recieverId   String
+  recieverId   String?
   aiFlagged    Boolean        @default(false)
   aiNote       String?
   description  String?
@@ -98,7 +98,7 @@ model Transfer {
   completedAt  DateTime?
   token        String         @unique
   sender       User           @relation("SentTransfers", references: [id], fields: [senderId])
-  reciever     User           @relation("RecievedTransfers", references: [id], fields: [recieverId])
+  reciever     User?           @relation("RecievedTransfers", references: [id], fields: [recieverId])
 }
 
 model Wallet {
