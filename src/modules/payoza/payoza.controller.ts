@@ -27,6 +27,7 @@ export class PayozaController {
   }
   @ApiOperation({summary:"Initialize payment gateway"})
   @Post('intialize-payment')
+  @UseGuards(JwtGuard)
  @ApiBody({type:InitilizeTopUp})
   async intializePayaza(@Body() body:InitilizeTopUp,@CurrentUser() user ){
       return await this.payozaService.handlepayazaTopupInitialize(body,user)
