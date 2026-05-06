@@ -10,7 +10,12 @@ import { JwtService } from '@nestjs/jwt';
 import { ExecuteTransferDto } from './dto/execute-transfer.dto';
 import { ConfigService } from '@nestjs/config';
 import { InitiateTransferDto } from './dto/initiate-transfer.dto';
-import { Prisma, TransactionType, TransferStatus, TransferType } from '@prisma/client';
+import {
+  Prisma,
+  TransactionType,
+  TransferStatus,
+  TransferType,
+} from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { ICreateNotificationDto } from '../notification/dto/create-notification.dto';
 import { ICreatePhoneTransfer } from './dto/create-phone-transfer.dto';
@@ -60,9 +65,9 @@ export class TransferService {
 
   async executeTransaction(userId: string, token: ExecuteTransferDto) {
     const payload = this.extractTransferPayload(token);
-      if (userId === payload.senderId) {
-  throw new BadRequestException('You cannot transfer to yourself')
-}
+    if (userId === payload.senderId) {
+      throw new BadRequestException('You cannot transfer to yourself');
+    }
     const [transfer, senderWallet, recieverWallet] = await Promise.all([
       this.db.transfer.findUnique({
         where: {
@@ -108,7 +113,7 @@ export class TransferService {
         `Could not find wallet for user with id ${payload.senderId}`,
       );
     }
-  
+
     if (transfer.status !== TransferStatus.PENDING) {
       this.loggerService.error(
         `Transfer ${payload.transferId} cannot be processed — status is ${transfer.status}`,
@@ -166,7 +171,7 @@ export class TransferService {
         data: {
           status: TransferStatus.COMPLETED,
           completedAt: new Date(),
-          recieverId:userId
+          recieverId: userId,
         },
       });
 
@@ -182,27 +187,22 @@ export class TransferService {
   }
 
   async iniitiateTransaction(userId: string, body: InitiateTransferDto) {
-    const { amount, description,transferType } = body;
+    const { amount, description, transferType } = body;
 
-    console.log('userId from JWT:', userId)
-   
+    console.log('userId from JWT:', userId);
 
-    const  senderWallet = await 
-      this.db.wallet.findUnique({
-        where: {
-          userId,
+    const senderWallet = await this.db.wallet.findUnique({
+      where: {
+        userId,
+      },
+      include: {
+        user: {
+          omit: {
+            password: true,
+          },
         },
-        include:{
-          user:{
-            omit:{
-              password:true
-            }
-          }
-        }
-      })
-   
-
-
+      },
+    });
 
     if (!senderWallet) {
       this.loggerService.error(
@@ -252,112 +252,121 @@ export class TransferService {
     };
   }
 
-  async transByPhone(userId:string,body:ICreatePhoneTransfer){
-      const {amount,phoneNumber,transferType,description} = body
-      await this.db.$transaction(async(tx)=>{
-          const receiver = await tx.user.findUnique({
-            where:{
-              phone:phoneNumber
-            }
-          })
-          if(!receiver){
-            throw new NotFoundException(`Could not find user for the phone number ${phoneNumber}`)
-          }
-          if(receiver.id === userId){
-            throw new BadRequestException(`You cannot transfer to yourself`)
-          }
-
-          const senderWallet = await tx.wallet.findUnique({
-            where:{
-              userId
-            }
-          })
-          if(!senderWallet){
-            throw new NotFoundException(`Could not find wallet for the user ${userId}`)
-          }
-        
-          if(Number(senderWallet.balance) < amount){
-              throw new BadRequestException(`User ${userId} : Insufficient balance`)
-          }
-
-           await tx.wallet.update({
-            where:{
-              userId
-            },
-            data:{
-              balance:{decrement:amount}
-            }
-          })
-
-        const receiverWallet =  await tx.wallet.update({
-            where:{
-              userId:receiver.id
-            },
-            data:{
-              balance:{increment:amount}
-            }
-          })
-
-          await tx.transfer.create({
-            data:{
-              amount,
-              ...(description && {description}),
-              senderId:userId,
-              recieverId:receiver.id,
-              transferType:TransferType.MANUAL
-            }
-          })
-
-          await tx.transactions.create({
-            data:{
-              amount,
-              type:TransactionType.DEBIT,
-              transferType:TransferType.MANUAL,
-              ...(description && {description}),
-              walletId: senderWallet.id,
-            }
-          })
-            await tx.transactions.create({
-            data:{
-              amount,
-              type:TransactionType.CREDIT,
-              transferType:TransferType.MANUAL,
-              ...(description && {description}),
-              walletId: receiverWallet.id,
-            }
-          })
-      
-      })
-      return {
-        message:"Transfer  successful",
+  async transByPhone(userId: string, body: ICreatePhoneTransfer) {
+    const { amount, phoneNumber, transferType, description } = body;
+    await this.db.$transaction(async (tx) => {
+      const receiver = await tx.user.findUnique({
+        where: {
+          phone: phoneNumber,
+        },
+      });
+      if (!receiver) {
+        throw new NotFoundException(
+          `Could not find user for the phone number ${phoneNumber}`,
+        );
       }
+      if (receiver.id === userId) {
+        throw new BadRequestException(`You cannot transfer to yourself`);
+      }
+
+      const senderWallet = await tx.wallet.findUnique({
+        where: {
+          userId,
+        },
+      });
+      if (!senderWallet) {
+        throw new NotFoundException(
+          `Could not find wallet for the user ${userId}`,
+        );
+      }
+
+      if (Number(senderWallet.balance) < amount) {
+        throw new BadRequestException(`User ${userId} : Insufficient balance`);
+      }
+
+      await tx.wallet.update({
+        where: {
+          userId,
+        },
+        data: {
+          balance: { decrement: amount },
+        },
+      });
+
+      const receiverWallet = await tx.wallet.update({
+        where: {
+          userId: receiver.id,
+        },
+        data: {
+          balance: { increment: amount },
+        },
+      });
+
+      await tx.transfer.create({
+        data: {
+          amount,
+          ...(description && { description }),
+          senderId: userId,
+          recieverId: receiver.id,
+          transferType: TransferType.MANUAL,
+        },
+      });
+
+      await tx.transactions.create({
+        data: {
+          amount,
+          type: TransactionType.DEBIT,
+          transferType: TransferType.MANUAL,
+          ...(description && { description }),
+          walletId: senderWallet.id,
+        },
+      });
+      await tx.transactions.create({
+        data: {
+          amount,
+          type: TransactionType.CREDIT,
+          transferType: TransferType.MANUAL,
+          ...(description && { description }),
+          walletId: receiverWallet.id,
+        },
+      });
+    });
+    return {
+      message: 'Transfer  successful',
+    };
   }
-  async searchRecipientByPhone(query:string,userId:string){
-     const normalized = query.replace(/\+/g, '').replace(/\s/g, '')
+  async searchRecipientByPhone(query: string, userId: string) {
+    const normalized = query.startsWith('0')
+      ? '234' + query.slice(1)
+      : query.replace(/\+/g, '').replace(/\s/g, '');
+
+    console.log('query:', query);
+    console.log('normalized:', normalized);
+
     const user = await this.db.user.findFirst({
-      where:{
-        phone:{
-          contains:normalized
+      where: {
+        phone: {
+          contains: normalized,
         },
         NOT:{
           id:userId
-        },
-        
+        }
       },
-      select:{
-        id:true,
-        name:true,
-        phone:true
-      }
-    })
-    if(!user){
-      throw new NotFoundException(`No Tappay USer found for query ${query}`)
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+      },
+    });
+    console.log('found user:', user);
+    if (!user) {
+      throw new NotFoundException(`No Tappay USer found for query ${query}`);
     }
     return {
-      message:'User found',
-      data:{ 
-        user
-      }
-    }
+      message: 'User found',
+      data: {
+        user,
+      },
+    };
   }
 }
