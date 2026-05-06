@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { TransferType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, IsPositive, IsString, IsUUID, Min } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Min } from 'class-validator';
 
 export class InitiateTransferDto {
   @ApiProperty({
@@ -22,6 +23,11 @@ export class InitiateTransferDto {
    @IsOptional()
    @IsString()
    description?:string
+
+    @ApiProperty({ description: 'Select the transfer type'})
+    @IsEnum(TransferType)
+    transferType!:TransferType
+
 
 
 }

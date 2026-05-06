@@ -18,6 +18,7 @@ enum Currency {
 enum TransferType {
   NFC
   MANUAL
+  QR
 }
 
 enum TransferStatus {
@@ -38,6 +39,8 @@ enum Role {
   ADMIN
   USER
 }
+
+
 
 enum TransactionType {
   CREDIT

@@ -175,7 +175,7 @@ export class TransferService {
   }
 
   async iniitiateTransaction(userId: string, body: InitiateTransferDto) {
-    const { amount, recieverId, description } = body;
+    const { amount, recieverId, description,transferType } = body;
 
     if (recieverId == userId) {
       this.loggerService.error(
@@ -241,7 +241,7 @@ export class TransferService {
         recieverId,
         ...(description && { description }),
         status: TransferStatus.PENDING,
-        transferType: TransferType.NFC,
+        transferType: transferType,
         token,
       },
     });
