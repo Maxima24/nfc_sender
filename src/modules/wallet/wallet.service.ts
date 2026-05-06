@@ -162,6 +162,7 @@ export class WalletService {
     const [total,transactions] = await Promise.all([
         await this.db.transactions.count({
             where:{
+              userId,
                 ...(startDate && {createdAt: {gte:startDate}}),
                 ...(endDate && {createdAt:{lte:endDate}}),
                 ...(transactionType && {transactionType}),
@@ -170,6 +171,7 @@ export class WalletService {
         }),
         await this.db.transactions.findMany({
             where:{
+              userId,
                        ...(startDate && {createdAt: {gte:startDate}}),
                 ...(endDate && {createdAt:{lte:endDate}}),
                 ...(transactionType && {transactionType}),
