@@ -158,28 +158,32 @@ export class WalletService {
       transactionType,
     } = filters;
 
+    const wallet = await this.db.wallet.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!wallet) {
+      throw new NotFoundException(`Could not find wallet for user ${userId}`);
+    }
 
-    const [total,transactions] = await Promise.all([
-        await this.db.transactions.count({
-            where:{
-              userId,
-                ...(startDate && {createdAt: {gte:startDate}}),
-                ...(endDate && {createdAt:{lte:endDate}}),
-                ...(transactionType && {transactionType}),
-                ...(startDate && endDate && {createdAt:{gte:startDate,lte:endDate}} )
-            }
-        }),
-        await this.db.transactions.findMany({
-            where:{
-              userId,
-                       ...(startDate && {createdAt: {gte:startDate}}),
-                ...(endDate && {createdAt:{lte:endDate}}),
-                ...(transactionType && {transactionType}),
-                ...(startDate && endDate && {createdAt:{gte:startDate,lte:endDate}} )
-            },
-            take:limit,
-            skip: (page-1)*limit
-        })
+    const where = {
+      walletId: wallet.id,
+      ...((startDate || endDate) && {
+        createdAt: {
+          ...(startDate && { gte: startDate }),
+          ...(endDate && { lte: endDate }),
+        },
+      }),
+      ...(transactionType && { type: transactionType }),
+    };
+
+    const [total, transactions] = await Promise.all([
+      this.db.transactions.count({ where }),
+      this.db.transactions.findMany({
+        where,
+        take: limit,
+        skip: (page - 1) * limit,
+      }),
     ])
 
     return {
