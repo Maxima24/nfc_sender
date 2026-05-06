@@ -130,14 +130,15 @@ model Topups {
 
 model Transactions {
   id          String          @id @default(uuid())
-  reference   String?
-  paymentReference  String?
+  reference   String?         @unique
+  paymentReference  String?   @unique
   description String?
   walletId    String
   amount      Decimal
   wallet      Wallet          @relation(references: [id], fields: [walletId])
   type        TransactionType
   transferType TransferType?
+  status       TopUpStatus?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 }
