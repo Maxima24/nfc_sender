@@ -19,14 +19,15 @@ export class PayozaController {
      return await this.payozaService.handleTopup(user.id,body.amount)
   }
 
-//    @ApiOperation({summary:'webhook payaza calls'})
-//   @Post("webhook")
-//   async initiateWebhook(@Body() body:any,@Headers('x-payaza-signature') signature: string){
-//      return await this.payozaService.handleWebhook(signature,body)
-//   }
+   @ApiOperation({summary:'webhook payaza calls'})
+  @Post("webhook")
+   @ApiBody({type:IHandleWebhookDto})
+  async initiateWebhook(@Body() body:any,@Headers('x-payaza-signature') signature: string){
+     return await this.payozaService.handleWebhook(signature,body)
+  }
   @ApiOperation({summary:"Initialize payment gateway"})
-  @Post('intialize-webhook')
-  @ApiBody({type:IHandleWebhookDto})
+  @Post('intialize-payment')
+ @ApiBody({type:InitilizeTopUp})
   async intializePayaza(@Body() body:InitilizeTopUp,@CurrentUser() user ){
       return await this.payozaService.handlepayazaTopupInitialize(body,user)
   }
