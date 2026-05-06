@@ -76,6 +76,6 @@ export class TransferController {
   @ApiOperation({description:"Search for reciepient to transfer to"})
   @ApiQuery({type:ISearchRecipientDto})
   async searchByPhone(@Query('phone') phone: string, @CurrentUser() user) {
-    return this.userService.searchByPhone(phone, user.id);
+    return this.transferService.searchRecipientByPhone(phone, user.id);
   }
 }
