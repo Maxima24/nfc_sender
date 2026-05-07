@@ -80,7 +80,7 @@ model Device {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  deviceId  String?   @unique
+  deviceId  String?   
   token      String?
   platform  String
   os        String?

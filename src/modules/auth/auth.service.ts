@@ -35,90 +35,96 @@ export class AuthService {
     }
 
     const hashedPwd = await bcrypt.hash(password, 10);
-    let result;
-    try {
-      result = await this.db.$transaction(async (tx) => {
-      if (!email) {
-        throw new BadRequestException('Fill in the email Field');
-      }
-      const user = await tx.user.findFirst({
-        where: {
-          OR: [{ email }, { phone }],
-        },
-        select: { email: true, phone: true },
-      });
-      if (user) {
-        if (user.email === email) {
-          throw new BadRequestException('This email is already registered. Please login.');
+
+    const runTransaction = () =>
+      this.db.$transaction(async (tx) => {
+        if (!email) {
+          throw new BadRequestException('Fill in the email Field');
         }
-        throw new BadRequestException('This phone number is already registered.');
-      }
+        const user = await tx.user.findFirst({
+          where: {
+            OR: [{ email }, { phone }],
+          },
+          select: { email: true, phone: true },
+        });
+        if (user) {
+          if (user.email === email) {
+            throw new BadRequestException('This email is already registered. Please login.');
+          }
+          throw new BadRequestException('This phone number is already registered.');
+        }
 
-      const newUser = await tx.user.create({
-        data: {
-          email: email,
-          name: name,
-          password: hashedPwd,
-          phone,
-        },
-        omit: {
-          password: true,
-        },
+        const newUser = await tx.user.create({
+          data: {
+            email: email,
+            name: name,
+            password: hashedPwd,
+            phone,
+          },
+          omit: {
+            password: true,
+          },
+        });
+
+        await tx.wallet.create({
+          data: {
+            balance: 0,
+            currency: Currency.NGN,
+            userId: newUser.id,
+          },
+        });
+        await tx.device.create({
+          data: {
+            userId: newUser.id,
+            deviceId: body.deviceId,
+            platform: body.platform,
+            os: body.os ?? null,
+            token: body.deviceToken,
+            browser: body.browser ?? null,
+            ipAddress: ip ?? null,
+            lastSeen: new Date(),
+          },
+        });
+
+        const payload = {
+          email: newUser.email,
+          id: newUser.id,
+          role: newUser.role,
+        };
+        const accessToken = this.jwt.sign(payload);
+        const refreshToken = this.jwt.sign(payload, {
+          secret: this.configService.get('JWT_SECRET')!,
+          expiresIn: '7d',
+        });
+
+        this.logger.logAuthEvent('Register', newUser?.id, {
+          email: newUser.email,
+        });
+
+        return {
+          tokens: { accessToken, refreshToken },
+          userObj: newUser,
+        };
       });
 
-      await tx.wallet.create({
-        data: {
-          balance: 0,
-          currency: Currency.NGN,
-          userId: newUser.id,
-        },
-      });
-      await tx.device.create({
-        data: {
-          userId: newUser.id,
-          deviceId: body.deviceId,
-          platform: body.platform,
-          os: body.os ?? null,
-          token:body.deviceToken,
-          browser: body.browser ?? null,
-          ipAddress: ip ?? null, // converts undefined → null ✓
-          lastSeen: new Date(),
-        },
-      });
-
-      const payload = {
-        email: newUser.email,
-        id: newUser.id,
-        role: newUser.role,
-      };
-      const accessToken = this.jwt.sign(payload);
-      const refreshToken = this.jwt.sign(payload, {
-        secret: this.configService.get('JWT_SECRET')!,
-        expiresIn: '7d',
-      });
-
-      this.logger.logAuthEvent('Register', newUser?.id, {
-        email: newUser.email,
-      });
-
-      return {
-        tokens: {
-          accessToken,
-          refreshToken,
-        },
-        userObj: newUser,
-      };
-      });
+    let tokens: Awaited<ReturnType<typeof runTransaction>>['tokens'];
+    let userObj: Awaited<ReturnType<typeof runTransaction>>['userObj'];
+    try {
+      ({ tokens, userObj } = await runTransaction());
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        const target = (err.meta?.target as string[] | undefined)?.join(', ') ?? 'field';
-        this.logger.warn(`Unique constraint violation on ${target}`, 'Auth', { email, phone });
-        throw new BadRequestException(`A user with that ${target} already exists.`);
+        const rawTarget = err.meta?.target;
+        const target = Array.isArray(rawTarget) ? rawTarget.join(', ') : String(rawTarget ?? 'unknown');
+        this.logger.warn(`Unique constraint violation on ${target}`, 'Auth', {
+          email,
+          phone,
+          deviceId: body.deviceId,
+          target: rawTarget,
+        });
+        throw new BadRequestException(`Duplicate value for unique constraint: ${target}`);
       }
       throw err;
     }
-
-    const { tokens, userObj } = result;
 
     return {
       message: 'User creation successful',
