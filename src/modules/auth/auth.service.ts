@@ -12,7 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { LoginDto } from './dto/login.dto';
 import { LoggerService } from 'src/logger/logger.service';
-import { Currency } from '@prisma/client';
+import { Currency, Prisma } from '@prisma/client';
 import { IUpdateFcmTokenDto } from './dto/update-fcm-token';
 
 @Injectable()
@@ -35,17 +35,23 @@ export class AuthService {
     }
 
     const hashedPwd = await bcrypt.hash(password, 10);
-    const { tokens, userObj } = await this.db.$transaction(async (tx) => {
+    let result;
+    try {
+      result = await this.db.$transaction(async (tx) => {
       if (!email) {
         throw new BadRequestException('Fill in the email Field');
       }
       const user = await tx.user.findFirst({
         where: {
-          email,
+          OR: [{ email }, { phone }],
         },
+        select: { email: true, phone: true },
       });
       if (user) {
-        throw new BadRequestException('This user already exists Login ');
+        if (user.email === email) {
+          throw new BadRequestException('This email is already registered. Please login.');
+        }
+        throw new BadRequestException('This phone number is already registered.');
       }
 
       const newUser = await tx.user.create({
@@ -102,21 +108,17 @@ export class AuthService {
         },
         userObj: newUser,
       };
-    });
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const target = (err.meta?.target as string[] | undefined)?.join(', ') ?? 'field';
+        this.logger.warn(`Unique constraint violation on ${target}`, 'Auth', { email, phone });
+        throw new BadRequestException(`A user with that ${target} already exists.`);
+      }
+      throw err;
+    }
 
-    //   try {
-    //     await this.squadcoService.createVirtualAccount(userObj);
-    //   }
-    //   catch (err) {
-    //       if(err instanceof HttpException){
-    //           throw err
-    //       }else{
-    //         this.logger.error(
-    //   `Virtual account creation failed for user ${userObj.id}`,
-    //   'AuthService',
-    // );
-    //       }
-    //   }
+    const { tokens, userObj } = result;
 
     return {
       message: 'User creation successful',
