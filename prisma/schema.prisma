@@ -53,6 +53,12 @@ enum NotificationType {
 
 }
 
+enum FraudReportStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+}
+
 model User {
   id                String     @id @default(uuid())
   name              String
@@ -67,6 +73,7 @@ model User {
   wallet            Wallet?
   devices           Device[]
   notifications    Notification[]
+  fraudReports      FraudReport[]
 }
 
 model Device {
@@ -153,5 +160,17 @@ model Notification {
   isRead    Boolean         @default(false)
   createdAt DateTime        @default(now())
   metaData  Json?
-  readAt     DateTime?     
-} 
+  readAt     DateTime?
+}
+
+model FraudReport {
+  id                   String            @id @default(uuid())
+  userId               String
+  user                 User              @relation(fields: [userId], references: [id])
+  subject              String
+  description          String
+  transactionReference String?
+  status               FraudReportStatus @default(OPEN)
+  createdAt            DateTime          @default(now())
+  resolvedAt           DateTime?
+}

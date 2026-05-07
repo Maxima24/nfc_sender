@@ -9,6 +9,6 @@ import { FirebaseService } from './firebase.service';
 @Module({
   controllers: [NotificationsController ],
   providers: [NotificationsService,PrismaService,LoggerService,NotificationsGateway,FirebaseService],
-  exports:[FirebaseService]
+  exports:[FirebaseService, NotificationsService]
 })
 export class NotificationModule {}

@@ -19,9 +19,6 @@ export class UploadService {
     const r2_secret_key = this.configService.get<string>(
       'R2_SECRET_ACCESS_KEY',
     );
-    console.log('R2_ENDPOINT:', r2_endpoint);
-console.log('R2_ACCESS_ID:', r2_access_id);
-console.log('R2_SECRET_KEY:', r2_secret_key);
     const secrets = { r2_endpoint, r2_access_id, r2_secret_key };
     Object.entries(secrets).forEach(([key, value]) => {
       if (!value || value.trim() === '') {

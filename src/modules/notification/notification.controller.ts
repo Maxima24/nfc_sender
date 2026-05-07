@@ -1,9 +1,9 @@
-// notifications.controller.ts
 import {
   Controller,
   Get,
   Put,
   Delete,
+  HttpCode,
   Query,
   Param,
   UseGuards,
@@ -18,43 +18,37 @@ import {
 import { NotificationsService } from './notification.service';
 import { CurrentUser } from 'src/common/decorators/current_user.decorator';
 import { JwtGuard } from 'src/common/utils/jwt.utils';
-import { IGetAllNotification } from './dto/get-notification.dto';
 
 @ApiTags('Notifications')
 @ApiBearerAuth()
 @Controller('notifications')
+@UseGuards(JwtGuard)
 export class NotificationsController {
   constructor(private notificationsService: NotificationsService) {}
 
   @Get()
-  @UseGuards(JwtGuard)
   @ApiOperation({ summary: 'Get user notifications' })
-  @ApiQuery({type:IGetAllNotification})
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
   async getUserNotifications(
     @CurrentUser() user: any,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
-    @Query('type') type?: string,
-    @Query('unreadOnly') unreadOnly?: boolean,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
   ) {
     return this.notificationsService.getUserNotifications(
       user.id,
-      page,
-      limit,
-      type,
-      unreadOnly
+      page ? Number(page) : undefined,
+      limit ? Number(limit) : undefined,
     );
   }
 
   @Get('unread/count')
-  @UseGuards(JwtGuard)
   @ApiOperation({ summary: 'Get unread notifications count' })
   async getUnreadCount(@CurrentUser() user: any) {
     return this.notificationsService.getUnreadCount(user.id);
   }
 
   @Put(':id/read')
-  @UseGuards(JwtGuard)
   @ApiOperation({ summary: 'Mark a notification as read' })
   @ApiParam({ name: 'id', required: true, type: String })
   async markAsRead(@Param('id') id: string, @CurrentUser() user: any) {
@@ -62,17 +56,16 @@ export class NotificationsController {
   }
 
   @Put('read/all')
-  @UseGuards(JwtGuard)
   @ApiOperation({ summary: 'Mark all notifications as read' })
   async markAllAsRead(@CurrentUser() user: any) {
     return this.notificationsService.markAllAsRead(user.id);
   }
 
   @Delete(':id')
-  @UseGuards(JwtGuard)
+  @HttpCode(204)
   @ApiOperation({ summary: 'Delete a notification' })
   @ApiParam({ name: 'id', required: true, type: String })
   async deleteNotification(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.notificationsService.deleteNotification(id, user.id);
+    await this.notificationsService.deleteNotification(id, user.id);
   }
 }

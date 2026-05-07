@@ -11,12 +11,14 @@ import { WalletOperationDto } from './dto/wallet-operation.dto';
 import { GetWalletBalanceDto } from './dto/wallet-balance.dto';
 import { GetWalletTransactionsFilter } from './dto/wallet-trans-filter';
 import { text } from 'stream/consumers';
+import { LedgerService } from './ledger.service';
 
 @Injectable()
 export class WalletService {
   constructor(
     private db: PrismaService,
     private loggerService: LoggerService,
+    private ledger: LedgerService,
   ) {}
 
   async createWallet(userId, walletDto: WalletCreateDto) {
@@ -55,72 +57,45 @@ export class WalletService {
 
   async walletIncrement(userId: string, walletIncrement: WalletOperationDto) {
     const { amount } = walletIncrement;
-    const wallet = await this.db.$transaction(async (tx) => {
-      const wallet = await this.db.wallet.findUnique({
-        where: {
-          userId,
-        },
+    return this.db.$transaction(async (tx) => {
+      const existing = await tx.wallet.findUnique({
+        where: { userId },
+        select: { id: true },
       });
-      if (!wallet) {
+      if (!existing) {
         this.loggerService.error(
           `Wallet for the user id ${userId} could not be found`,
           'Wallet Service',
           '',
-          {
-            userId,
-          },
+          { userId },
         );
         throw new NotFoundException(
           `Wallet for the user id ${userId} could not be found`,
         );
       }
-      return await tx.wallet.update({
-        where: {
-          id: wallet.id,
-        },
-        data: {
-          balance: { increment: amount },
-        },
-        omit: {
-          createdAt: true,
-        },
-      });
+      const { wallet } = await this.ledger.credit(tx, existing.id, amount);
+      return wallet;
     });
-
-    return wallet;
   }
 
   async walletDecrement(userId: string, walletDecrement: WalletOperationDto) {
     const { amount } = walletDecrement;
-    const wallet = await this.db.$transaction(async (tx) => {
-      const wallet = await tx.wallet.findUnique({
-        where: {
-          userId,
-        },
+    return this.db.$transaction(async (tx) => {
+      const existing = await tx.wallet.findUnique({
+        where: { userId },
+        select: { id: true },
       });
-      if (!wallet) {
+      if (!existing) {
         this.loggerService.error(
           `Could not find wallet for user ${userId}`,
           'Wallet Service',
           '',
-          {
-            userId: userId,
-          },
+          { userId },
         );
         throw new NotFoundException(`Could not find wallet for user ${userId}`);
       }
-
-      return await tx.wallet.update({
-        where: {
-          id: wallet.id,
-          balance: {
-            gte: amount,
-          },
-        },
-        data: {
-          balance: { decrement: amount },
-        },
-      });
+      const { wallet } = await this.ledger.debit(tx, existing.id, amount);
+      return wallet;
     });
   }
 

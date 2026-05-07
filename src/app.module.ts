@@ -14,6 +14,10 @@ import { WalletModule } from './modules/wallet/wallet.module';
 import { TransferModule } from './modules/transfer/transfer.module';
 import { PayozaModule } from './modules/payoza/payoza.module';
 import { NotificationModule } from './modules/notification/notification.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { ChartsModule } from './modules/charts/charts.module';
+import { InvoicesModule } from './modules/invoices/invoices.module';
+import { SupportModule } from './modules/support/support.module';
 
 
 
@@ -52,7 +56,8 @@ import { NotificationModule } from './modules/notification/notification.module';
     }),
     AuthModule,
     UploadModule,
-    WalletModule,TransferModule,PayozaModule,NotificationModule
+    WalletModule,TransferModule,PayozaModule,NotificationModule,AnalyticsModule,
+    ChartsModule,InvoicesModule,SupportModule
   ],
   providers: [PrismaService,JwtStrategy],
 })

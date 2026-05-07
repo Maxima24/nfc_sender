@@ -1,9 +1,22 @@
-// notifications.service.ts
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsGateway } from './notification.gateway';
-import { NotificationType, Prisma } from '@prisma/client';
-import { ICreateNotificationDto } from './dto/create-notification.dto';
+import { Notification, NotificationType, Prisma } from '@prisma/client';
+
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 50;
+
+interface CreateAndPushInput {
+  userId: string;
+  title: string;
+  body: string;
+  type: NotificationType;
+  metaData?: Prisma.InputJsonValue;
+}
 
 @Injectable()
 export class NotificationsService {
@@ -12,133 +25,101 @@ export class NotificationsService {
     private notificationsGateway: NotificationsGateway,
   ) {}
 
-  async createNotification(userId:string,{
-    type,
-    title,
-    message,
-    metadata,
-  }: ICreateNotificationDto) {
-    // Save to database
+  async createAndPush(input: CreateAndPushInput): Promise<Notification> {
     const notification = await this.db.notification.create({
       data: {
-        userId,
-        type,
-        title,
-        body: message,
-        ...(metadata && {metaData:metadata as any}),
-        isRead: false,
-        createdAt: new Date(),
+        userId: input.userId,
+        title: input.title,
+        body: input.body,
+        type: input.type,
+        ...(input.metaData !== undefined && { metaData: input.metaData }),
       },
     });
 
-    // Send real-time via WebSocket
-    this.notificationsGateway.sendNotificationToUser(userId, {
-      id: notification.id,
-      type: notification.type,
-      title: notification.title,
-      message: notification.body,
-      metadata: notification.metaData,
-      read: notification.isRead,
-      createdAt: notification.createdAt,
-    });
+    this.notificationsGateway.pushToUser(input.userId, notification);
 
     return notification;
   }
 
   async getUserNotifications(
     userId: string,
-    page: number = 1,
-    limit: number = 20,
-    type?: string,
-    unreadOnly?: boolean,
+    page = 1,
+    limit = DEFAULT_LIMIT,
   ) {
-    const where: any = { userId };
+    const safePage = page > 0 ? page : 1;
+    const safeLimit = Math.min(Math.max(limit, 1), MAX_LIMIT);
 
-    if (type) where.type = type;
-    if (unreadOnly) where.read = false;
+    const where: Prisma.NotificationWhereInput = { userId };
 
-    const [notifications, total] = await Promise.all([
+    const [notifications, total, unreadCount] = await Promise.all([
       this.db.notification.findMany({
         where,
         orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
+        skip: (safePage - 1) * safeLimit,
+        take: safeLimit,
       }),
       this.db.notification.count({ where }),
+      this.db.notification.count({ where: { userId, isRead: false } }),
     ]);
 
     return {
-      data: notifications,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+      data: {
+        notifications,
+        meta: {
+          total,
+          page: safePage,
+          limit: safeLimit,
+          unreadCount,
+        },
       },
     };
   }
 
   async getUnreadCount(userId: string) {
-    return this.db.notification.count({
+    const count = await this.db.notification.count({
       where: { userId, isRead: false },
     });
+    return { count };
   }
 
   async markAsRead(notificationId: string, userId: string) {
-    const notification = await this.db.notification.update({
-      where: { id: notificationId, userId },
+    const notification = await this.db.notification.findUnique({
+      where: { id: notificationId },
+    });
+    if (!notification) {
+      throw new NotFoundException(`Notification ${notificationId} not found`);
+    }
+    if (notification.userId !== userId) {
+      throw new ForbiddenException('Cannot modify another user\'s notification');
+    }
+    if (notification.isRead) return notification;
+
+    return this.db.notification.update({
+      where: { id: notificationId },
       data: { isRead: true, readAt: new Date() },
     });
-
-    // Broadcast update to all user devices
-    this.notificationsGateway.sendNotificationToUser(userId, {
-      action: 'notification_read',
-      notificationId: notification.id,
-    });
-
-    return notification;
   }
 
   async markAllAsRead(userId: string) {
-    await this.db.notification.updateMany({
+    const result = await this.db.notification.updateMany({
       where: { userId, isRead: false },
       data: { isRead: true, readAt: new Date() },
     });
-
-    // Broadcast to user
-    this.notificationsGateway.sendNotificationToUser(userId, {
-      action: 'all_notifications_read',
-    });
-
-    return { success: true };
+    return { count: result.count };
   }
 
   async deleteNotification(notificationId: string, userId: string) {
-    await this.db.notification.delete({
-      where: { id: notificationId, userId },
+    const notification = await this.db.notification.findUnique({
+      where: { id: notificationId },
+      select: { userId: true },
     });
-    return { success: true };
+    if (!notification) {
+      throw new NotFoundException(`Notification ${notificationId} not found`);
+    }
+    if (notification.userId !== userId) {
+      throw new ForbiddenException('Cannot delete another user\'s notification');
+    }
+
+    await this.db.notification.delete({ where: { id: notificationId } });
   }
-
-  //   async getSettings(userId: string) {
-  //     // Get or create user notification settings
-  //     let settings = await this.db.notificationSettings.findUnique({
-  //       where: { userId },
-  //     });
-
-  //     if (!settings) {
-  //       settings = await this.db.notificationSettings.create({
-  //         data: {
-  //           userId,
-  //           emailNotifications: true,
-  //           pushNotifications: true,
-  //           paymentAlerts: true,
-  //           securityAlerts: true,
-  //           promotionalEmails: false,
-  //         },
-  //       });
-  //     }
-
-  //     return settings;
-  //   }
 }

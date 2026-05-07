@@ -15,6 +15,7 @@ import * as crypto from 'crypto';
 import { FirebaseService } from '../notification/firebase.service';
 import { InitilizeTopUp } from './dto/initiate-topup.dto';
 import { IHandleWebhookDto, ReceivedFromDto } from './dto/handle-webhook.dto';
+import { LedgerService } from '../wallet/ledger.service';
 
 @Injectable()
 export class PayozaService {
@@ -27,6 +28,7 @@ export class PayozaService {
     private httpService: HttpService,
     private configService: ConfigService,
     private firebaseService: FirebaseService,
+    private readonly ledger: LedgerService,
   ) {
     const publicKey = this.configService.get<string>(`PAYAZA_PUBLIC_KEY`);
     const payazaBaseUrl = this.configService.get<string>(`PAYAZA_BASE_URL`);
@@ -50,7 +52,6 @@ export class PayozaService {
     }
 
     this.authHeader = `Payaza ${Buffer.from(publicKey).toString('base64')}`;
-    console.log(this.authHeader, 'This is the auth header');
     if (!payazaSecretKey) {
       this.loggerService.error(
         `Secret key for payaza service not found`,
@@ -184,20 +185,12 @@ export class PayozaService {
 
       await this.db.$transaction(async (tx) => {
         await tx.topups.update({
-          where: {
-            payozaRef: data.reference,
-          },
-          data: {
-            status: 'COMPLETED',
-          },
+          where: { payozaRef: data.reference },
+          data: { status: 'COMPLETED' },
         });
-        await tx.wallet.update({
-          where: {
-            id: wallet.id,
-          },
-          data: {
-            balance: { increment: amount },
-          },
+        await this.ledger.credit(tx, wallet.id, amount, {
+          reference: data.reference,
+          description: 'Wallet top-up (simulated)',
         });
       });
 
@@ -264,22 +257,20 @@ export class PayozaService {
       });
 
       await tx.topups.update({
-        where: {
-          payozaRef: payazaRef,
-        },
-        data: {
-          status: 'COMPLETED',
-        },
+        where: { payozaRef: payazaRef },
+        data: { status: 'COMPLETED' },
       });
 
-      return await tx.wallet.update({
-        where: {
-          id: wallet.id,
+      const { wallet: updated } = await this.ledger.credit(
+        tx,
+        wallet.id,
+        amount,
+        {
+          reference: payazaRef,
+          description: 'Wallet top-up',
         },
-        data: {
-          balance: { increment: amount },
-        },
-      });
+      );
+      return updated;
     });
 
     const devices = await this.db.device.findMany({
@@ -391,31 +382,17 @@ export class PayozaService {
 
     await this.db.$transaction(async (tx) => {
       await tx.topups.update({
-        where: {
-          id: existingTopup.id,
-        },
+        where: { id: existingTopup.id },
         data: {
           completedAt: new Date(),
           status: TopUpStatus.COMPLETED,
         },
       });
 
-      await tx.transactions.update({
-        where:{
-          reference:payload.merchant_reference
-        },
-        data:{
-          paymentReference:payload.transaction_reference,
-          status:"COMPLETED"
-        }
-      })
-      await tx.wallet.update({
-        where: {
-          id: existingTopup.walletId,
-        },
-        data: {
-          balance: { increment: payload.amount_received },
-        },
+      await this.ledger.completePendingCredit(tx, {
+        reference: payload.merchant_reference,
+        amount: payload.amount_received,
+        paymentReference: payload.transaction_reference,
       });
     });
     return { recieved: true };

@@ -11,14 +11,16 @@ import { ExecuteTransferDto } from './dto/execute-transfer.dto';
 import { ConfigService } from '@nestjs/config';
 import { InitiateTransferDto } from './dto/initiate-transfer.dto';
 import {
+  NotificationType,
   Prisma,
-  TransactionType,
   TransferStatus,
   TransferType,
 } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { ICreateNotificationDto } from '../notification/dto/create-notification.dto';
 import { ICreatePhoneTransfer } from './dto/create-phone-transfer.dto';
+import { NotificationsService } from '../notification/notification.service';
+import { LedgerService } from '../wallet/ledger.service';
 
 interface IjwtSignTransaction {
   senderId: string;
@@ -32,6 +34,8 @@ export class TransferService {
     private readonly loggerService: LoggerService,
     private jwt: JwtService,
     private configService: ConfigService,
+    private readonly notificationsService: NotificationsService,
+    private readonly ledger: LedgerService,
   ) {}
 
   private async jwtSignTransaction(payload: IjwtSignTransaction) {
@@ -78,11 +82,13 @@ export class TransferService {
         where: {
           userId: payload.senderId,
         },
+        include: { user: { select: { id: true, name: true } } },
       }),
       this.db.wallet.findUnique({
         where: {
           userId,
         },
+        include: { user: { select: { id: true, name: true } } },
       }),
     ]);
 
@@ -144,24 +150,14 @@ export class TransferService {
     }
 
     const transferObj = await this.db.$transaction(async (tx) => {
-      await tx.wallet.update({
-        where: {
-          id: senderWallet.id,
-        },
-        data: {
-          balance: { decrement: payload.amount },
-        },
+      await this.ledger.debit(tx, senderWallet.id, payload.amount, {
+        description: transfer.description ?? undefined,
+        transferType: transfer.transferType,
       });
 
-      //update recievers wallet
-
-      await tx.wallet.update({
-        where: {
-          id: recieverWallet.id,
-        },
-        data: {
-          balance: { increment: payload.amount },
-        },
+      await this.ledger.credit(tx, recieverWallet.id, payload.amount, {
+        description: transfer.description ?? undefined,
+        transferType: transfer.transferType,
       });
 
       const updatedTransfer = await tx.transfer.update({
@@ -182,6 +178,31 @@ export class TransferService {
         },
       };
     });
+
+    await Promise.all([
+      this.notificationsService.createAndPush({
+        userId: senderWallet.user.id,
+        title: 'Payment Sent ✓',
+        body: `₦${payload.amount} sent successfully`,
+        type: NotificationType.DEBIT,
+        metaData: {
+          amount: payload.amount,
+          receiverId: recieverWallet.user.id,
+          transferType: transfer.transferType,
+        },
+      }),
+      this.notificationsService.createAndPush({
+        userId: recieverWallet.user.id,
+        title: 'Payment Received 💚',
+        body: `You received ₦${payload.amount}`,
+        type: NotificationType.CREDIT,
+        metaData: {
+          amount: payload.amount,
+          senderId: senderWallet.user.id,
+          transferType: transfer.transferType,
+        },
+      }),
+    ]);
 
     return transferObj;
   }
@@ -260,8 +281,8 @@ export class TransferService {
   : phoneNumber.startsWith('234')
   ? '+' + phoneNumber              // 👈 add the +
   : phoneNumber
-    await this.db.$transaction(async (tx) => {
-      
+    const { sender, receiver } = await this.db.$transaction(async (tx) => {
+
       const receiver = await tx.user.findUnique({
         where: {
           phone: normalized,
@@ -280,6 +301,7 @@ export class TransferService {
         where: {
           userId,
         },
+        include: { user: { select: { id: true, name: true } } },
       });
       if (!senderWallet) {
         throw new NotFoundException(
@@ -291,23 +313,25 @@ export class TransferService {
         throw new BadRequestException(`User ${userId} : Insufficient balance`);
       }
 
-      await tx.wallet.update({
-        where: {
-          userId,
-        },
-        data: {
-          balance: { decrement: amount },
-        },
+      const receiverWallet = await tx.wallet.findUnique({
+        where: { userId: receiver.id },
+        select: { id: true },
+      });
+      if (!receiverWallet) {
+        throw new NotFoundException(
+          `Could not find wallet for receiver ${receiver.id}`,
+        );
+      }
+
+      await this.ledger.debit(tx, senderWallet.id, amount, {
+        description,
+        transferType: TransferType.MANUAL,
+      });
+      await this.ledger.credit(tx, receiverWallet.id, amount, {
+        description,
+        transferType: TransferType.MANUAL,
       });
 
-      const receiverWallet = await tx.wallet.update({
-        where: {
-          userId: receiver.id,
-        },
-        data: {
-          balance: { increment: amount },
-        },
-      });
       const transferData = {
         amount,
         ...(description && { description }),
@@ -318,27 +342,37 @@ export class TransferService {
       console.log('transfer create data:', transferData);
 
       await tx.transfer.create({
-        data: transferData});
+        data: transferData,
+      });
 
-      await tx.transactions.create({
-        data: {
-          amount,
-          type: TransactionType.DEBIT,
-          transferType: TransferType.MANUAL,
-          ...(description && { description }),
-          walletId: senderWallet.id,
-        },
-      });
-      await tx.transactions.create({
-        data: {
-          amount,
-          type: TransactionType.CREDIT,
-          transferType: TransferType.MANUAL,
-          ...(description && { description }),
-          walletId: receiverWallet.id,
-        },
-      });
+      return { sender: senderWallet.user, receiver };
     });
+
+    await Promise.all([
+      this.notificationsService.createAndPush({
+        userId: sender.id,
+        title: 'Payment Sent ✓',
+        body: `₦${amount} sent successfully`,
+        type: NotificationType.DEBIT,
+        metaData: {
+          amount,
+          receiverId: receiver.id,
+          transferType: TransferType.MANUAL,
+        },
+      }),
+      this.notificationsService.createAndPush({
+        userId: receiver.id,
+        title: 'Payment Received 💚',
+        body: `You received ₦${amount}`,
+        type: NotificationType.CREDIT,
+        metaData: {
+          amount,
+          senderId: sender.id,
+          transferType: TransferType.MANUAL,
+        },
+      }),
+    ]);
+
     return {
       message: 'Transfer  successful',
     };
