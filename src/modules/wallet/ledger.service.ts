@@ -14,6 +14,8 @@ import { PrismaService } from '../prisma/prisma.service';
 
 type Tx = Prisma.TransactionClient;
 
+const MAX_WALLET_BALANCE = 10_000_000;
+
 export interface LedgerEntryMeta {
   description?: string;
   transferType?: TransferType;
@@ -41,6 +43,32 @@ export class LedgerService {
       throw new BadRequestException('Credit amount must be positive');
     }
 
+    let wallet;
+    try {
+      wallet = await tx.wallet.update({
+        where: {
+          id: walletId,
+          balance: { lte: MAX_WALLET_BALANCE - amount },
+        },
+        data: { balance: { increment: amount } },
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2025'
+      ) {
+        const exists = await tx.wallet.findUnique({
+          where: { id: walletId },
+          select: { id: true },
+        });
+        if (!exists) {
+          throw new NotFoundException(`Wallet ${walletId} not found`);
+        }
+        throw new BadRequestException('Limit exceeded for the balance');
+      }
+      throw err;
+    }
+
     const transaction = await tx.transactions.create({
       data: {
         walletId,
@@ -54,11 +82,6 @@ export class LedgerService {
           paymentReference: meta.paymentReference,
         }),
       },
-    });
-
-    const wallet = await tx.wallet.update({
-      where: { id: walletId },
-      data: { balance: { increment: amount } },
     });
 
     return { wallet, transaction };
@@ -146,6 +169,32 @@ export class LedgerService {
       );
     }
 
+    let wallet;
+    try {
+      wallet = await tx.wallet.update({
+        where: {
+          id: pending.walletId,
+          balance: { lte: MAX_WALLET_BALANCE - args.amount },
+        },
+        data: { balance: { increment: args.amount } },
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2025'
+      ) {
+        const exists = await tx.wallet.findUnique({
+          where: { id: pending.walletId },
+          select: { id: true },
+        });
+        if (!exists) {
+          throw new NotFoundException(`Wallet ${pending.walletId} not found`);
+        }
+        throw new BadRequestException('Limit exceeded for the balance');
+      }
+      throw err;
+    }
+
     const transaction = await tx.transactions.update({
       where: { id: pending.id },
       data: {
@@ -154,11 +203,6 @@ export class LedgerService {
           paymentReference: args.paymentReference,
         }),
       },
-    });
-
-    const wallet = await tx.wallet.update({
-      where: { id: pending.walletId },
-      data: { balance: { increment: args.amount } },
     });
 
     return { wallet, transaction, alreadyCompleted: false };
