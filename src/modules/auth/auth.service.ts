@@ -276,8 +276,7 @@ export class AuthService {
 
       return await tx.device.update({
         where: {
-          userId,
-          deviceId,
+          id: device.id,
         },
         data: {
           token: deviceToken,

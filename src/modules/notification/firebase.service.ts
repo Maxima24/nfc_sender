@@ -38,7 +38,7 @@ export class FirebaseService implements OnModuleInit {
       console.error('FCM send error:', error);
       // If token is invalid, mark as inactive
       if ((error as any).code === 'messaging/invalid-registration-token') {
-        await this.db.device.update({ where: { deviceId:token }, data: { isActive: false } });
+        await this.db.device.updateMany({ where: { token }, data: { isActive: false } });
       }
       throw error;
     }
@@ -60,14 +60,23 @@ export class FirebaseService implements OnModuleInit {
       data: data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])) : undefined,
     };
     const response = await admin.messaging().sendEachForMulticast(message);
-    
-    // Handle invalid tokens
-    response.responses.forEach((resp, idx) => {
-      if (!resp.success && resp.error?.code === 'messaging/invalid-registration-token') {
-        // Mark token as invalid in database
-        this.db.device.update({ where: { deviceId: tokens[idx] }, data: { isActive: false } });
-      }
-    });
+
+    // Mark any invalid tokens as inactive
+    const invalidTokens = response.responses
+      .map((resp, idx) =>
+        !resp.success &&
+        resp.error?.code === 'messaging/invalid-registration-token'
+          ? tokens[idx]
+          : null,
+      )
+      .filter((t): t is string => t !== null);
+
+    if (invalidTokens.length > 0) {
+      await this.db.device.updateMany({
+        where: { token: { in: invalidTokens } },
+        data: { isActive: false },
+      });
+    }
     return response;
   }
 }
