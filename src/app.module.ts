@@ -18,16 +18,17 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ChartsModule } from './modules/charts/charts.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { SupportModule } from './modules/support/support.module';
+import { buildRedisConnection } from './common/config/redis.config';
 
 
 
 @Module({
   imports: [
-    BullModule.forRoot({
-      connection:{
-        host: process.env.REDIS_HOST || "localhost",
-        port: parseInt(process.env.REDIS_PORT!) || 6379
-      }
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        connection: buildRedisConnection(configService),
+      }),
     }),
     LoggerModule,
     EventEmitterModule.forRoot(),

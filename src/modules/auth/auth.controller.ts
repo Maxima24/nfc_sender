@@ -54,8 +54,8 @@ export class AuthController {
   @UseGuards(JwtGuard)
   @ApiOperation({description:"Refresh user token"})
   @ApiBody({type:RefreshTokenDto})
-  public async refreshToken(@CurrentUser() user,dto:RefreshTokenDto){
-      return this.authService.refreshToken(user.id,dto.refreshToken)
+  public async refreshToken(@CurrentUser() user, @Body() dto: RefreshTokenDto){
+      return this.authService.refreshToken(user.id, dto.refreshToken)
   }
   @Get('/me')
   @UseGuards(JwtGuard)

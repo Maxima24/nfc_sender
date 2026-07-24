@@ -4,6 +4,7 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SignupDto } from './dto/signup.dto';
@@ -217,6 +218,18 @@ export class AuthService {
     };
   }
   public async refreshToken(userId: string, refreshToken: string) {
+    if (!refreshToken) {
+      throw new BadRequestException('Could not parse refresh token');
+    }
+
+    try {
+      await this.jwt.verify(refreshToken, {
+        secret: this.configService.get<string>('JWT_SECRET'),
+      });
+    } catch {
+      throw new UnauthorizedException('Could not verify refresh token');
+    }
+
     const user = await this.db.user.findUnique({
       where: {
         id: userId,
@@ -225,23 +238,15 @@ export class AuthService {
     if (!user) {
       throw new BadRequestException('Could not find user');
     }
-    if (!refreshToken) {
-      throw new BadRequestException('Could not parse refresh token');
-    }
-    const verified = await this.jwt.verify(refreshToken, {
-      secret: this.configService.get<string>('JWT_SECRET'),
-    });
-    if (!verified) {
-      throw new BadRequestException('Could not verify refresh token');
-    }
+
     const payload = {
       email: user.email,
-      password: user.password,
+      id: user.id,
       role: user.role,
     };
     const accessToken = this.jwt.sign(payload);
-    const newrefreshToken = this.jwt.sign(payload, {
-      secret: this.configService.get<string>('JWT_SERVICE'),
+    const newRefreshToken = this.jwt.sign(payload, {
+      secret: this.configService.get<string>('JWT_SECRET'),
       expiresIn: '30d',
     });
 
@@ -249,7 +254,7 @@ export class AuthService {
       message: 'refresh token generated successfully',
       data: {
         accessToken,
-        refreshToken,
+        refreshToken: newRefreshToken,
       },
     };
   }
